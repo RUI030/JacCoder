@@ -1,0 +1,12 @@
+{
+  "splits": {
+    "train": {
+      "num_examples": 6102,
+      "file": "train.parquet"
+    },
+    "valid": {
+      "num_examples": 1525,
+      "file": "valid.parquet"
+    }
+  }
+}

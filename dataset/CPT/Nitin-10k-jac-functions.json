@@ -1,0 +1,31 @@
+{
+  "train": {
+    "rows": 6102,
+    "tokens_total": 995294,
+    "tokens_p50": 122,
+    "tokens_p90": 316,
+    "tokens_p99": 694,
+    "class_mix": {
+      "function": 6026,
+      "graph": 75,
+      "osp": 1
+    },
+    "source_mix": {
+      "code": 6102
+    }
+  },
+  "valid": {
+    "rows": 1525,
+    "tokens_total": 252601,
+    "tokens_p50": 126,
+    "tokens_p90": 333,
+    "tokens_p99": 676,
+    "class_mix": {
+      "function": 1500,
+      "graph": 25
+    },
+    "source_mix": {
+      "code": 1525
+    }
+  }
+}
