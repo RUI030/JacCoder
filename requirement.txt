@@ -1,8 +1,24 @@
-# Qwen3.5 training stack. Torch and its CUDA-specific companion packages are
-# resolved by Unsloth; setup_tornith.sh asks uv to select the matching backend.
-unsloth
-unsloth_zoo>=2026.8.13
-transformers>=5.2.0,<=5.5.0
-trl>=0.18.2,<=0.24.0
-datasets>=3.4.1,!=4.0.*,!=4.1.0,<4.4.0
+# Qwen3.5 / Ornith training stack, verified together on 2026-08-21.
+unsloth==2026.8.19
+unsloth_zoo==2026.8.13
+transformers==5.5.0
+trl==0.24.0
+datasets==4.3.0
+
+# Training and model-loading runtime dependencies. These are also pulled in by
+# Unsloth, but listing them makes this project's requirements self-documenting.
+accelerate==1.14.0
+bitsandbytes==0.50.1
+peft==0.20.0
+sentencepiece==0.2.2
+protobuf==7.36.0
+huggingface_hub==1.28.0
+hf_transfer==0.1.9
+torchao==0.18.0
+
+# Notebook kernel support.
 ipykernel>=6.29
+
+# Do not pin torch, torchvision, triton, or xformers here. setup_env.sh invokes
+# uv with --torch-backend=auto so their binary builds match the available GPU,
+# CUDA driver, platform, and each other.

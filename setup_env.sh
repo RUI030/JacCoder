@@ -31,8 +31,9 @@ fi
 ENV_PYTHON="${ENV_PREFIX}/bin/python"
 "${ENV_PYTHON}" -m pip install --upgrade pip uv
 
-# --torch-backend=auto is a uv option, not pip's --no-deps. It chooses a Torch
-# build compatible with the detected NVIDIA/AMD/CPU platform.
+# --torch-backend=auto is a uv option, not pip's --no-deps. It chooses mutually
+# compatible Torch, torchvision, Triton, and xFormers builds for the detected
+# NVIDIA/AMD/CPU platform; requirement.txt owns the portable package pins.
 "${ENV_PREFIX}/bin/uv" pip install \
     --python "${ENV_PYTHON}" \
     --torch-backend=auto \
