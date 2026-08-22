@@ -1,0 +1,8 @@
+# Qwen3.5 training stack. Torch and its CUDA-specific companion packages are
+# resolved by Unsloth; setup_tornith.sh asks uv to select the matching backend.
+unsloth
+unsloth_zoo>=2026.8.13
+transformers>=5.2.0,<=5.5.0
+trl>=0.18.2,<=0.24.0
+datasets>=3.4.1,!=4.0.*,!=4.1.0,<4.4.0
+ipykernel>=6.29

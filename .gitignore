@@ -1,4 +1,5 @@
 .claude
 raw/
-CPT/
-SFT/
+train/cpt/outputs/
+adapter/
+unsloth_compiled_cache

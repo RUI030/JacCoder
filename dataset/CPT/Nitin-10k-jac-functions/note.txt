@@ -1,0 +1,2 @@
+This dataset is relatively simple and is aim to let the model learns the grammer like {} and ;
+In standard unsloth CPT for Qwen 2.5 coder 7B Instruct bnb 4 bit, 1 epoch (600~1200 steps) is wnough for the model to learn, otherwise it overfit.
