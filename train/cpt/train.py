@@ -1,0 +1,204 @@
+import os, re
+from unsloth import FastLanguageModel
+import torch
+from datasets import load_dataset
+from transformers import TrainingArguments
+from unsloth import (
+    UnslothTrainer,
+    UnslothTrainingArguments,
+    is_bfloat16_supported,
+)
+from datetime import datetime
+now = datetime.now()
+timestamp= now.strftime("%m-%d_%H-%M")
+
+# Model Setting ===========================================
+
+ADAPTER_PATH   = "" # If not empty, train on BASE_MODEL + ADAPTER
+BASE_MODEL     = "ornith-ai/Ornith-1.5-9B" # Base model
+
+MAX_SEQ_LENGTH = 4096 
+DTYPE          = None # None for auto detection
+LOAD_IN_4BIT   = True
+
+# Dataset Setting ==========================================
+
+DATA_DIR      = "../../dataset/CPT"
+DATASET       = "Ayush-ground-truth"
+TRAIN_SET     = [ f"{DATA_DIR}/{DATASET}/train.jsonl",
+                  f"{DATA_DIR}/{DATASET}/valid.jsonl"]
+VALID_SET     = []
+SPLIT         = "train"
+
+# Output Setting ==========================================
+
+OUT_DIR       = f"../../output/{timestamp}"
+OUT_NAME      = f"{BASE_MODEL}-{DATASET}"
+MERGE         = False
+SAVE_METHOD   = "merged_4bit" # or "merged_16bit"
+
+HF_ORG        = "jaseci"
+PUSH_HF       = False
+HF_TOKEN      = ""
+# HF_TOKEN      = os.environ["HF_TOKEN"]
+
+TRAIN_LOG     = ""
+REPORT_TO     = ["tensorboard"] # "none", "wandb"
+TENSORBRD_DIR = f"{OUT_DIR}/runs" # folder path, empty to disable
+LOG_FREQ      = 10
+
+# Hyperparameters =========================================
+
+EPOCHS        = 3
+BATCH_SIZE    = 1
+GRAD_ACC      = 10
+
+OPTIMIZER     = "adamw_8bit"
+
+LEARNING_RATE = 5e-5
+EMBED_LR      = 0
+
+SCHEDULER     = "linear"
+WARMUP_STEPS  = 5
+MAX_STEPS     = 0           # nonpositive => train by epochs
+WEIGHT_DECAY  = 1e-3
+
+SAVE_STEPS    = 100
+EVAL_STEPS    = 0.1
+
+LORA_RANK     = 128
+LORA_ALPHA    = 32
+LORA_DROPOUT  = 0
+TARGET_MODULE = [ "q_proj", "k_proj", "v_proj", 
+                  "o_proj", "gate_proj", 
+                  "up_proj", "down_proj", 
+                  "embed_tokens", "lm_head" ]
+RSLORA        = True
+
+BIAS          = "none"
+GRAD_CHECKPT  = "unsloth"
+
+RANDOM_SEED   = 3407
+PACKING       = False
+COMPLETION    = False # SFT
+
+# Enviorment Setting ======================================
+
+# os.environ["UNSLOTH_RETURN_LOGITS"] = "1"
+
+# Load Model ==============================================
+
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = ADAPTER_PATH or BASE_MODEL, # Choose ANY! eg teknium/OpenHermes-2.5-Mistral-7B
+    max_seq_length = MAX_SEQ_LENGTH,
+    dtype = DTYPE,
+    load_in_4bit = LOAD_IN_4BIT,
+    # token = "YOUR_HF_TOKEN", # HF Token for gated models
+)
+
+model = FastLanguageModel.get_peft_model(
+    model,
+    r               = LORA_RANK,
+    target_modules  = TARGET_MODULE,
+    lora_alpha      = LORA_ALPHA,
+    lora_dropout    = LORA_DROPOUT,
+    bias            = BIAS,
+    use_gradient_checkpointing = GRAD_CHECKPT,
+    random_state    = RANDOM_SEED,
+    use_rslora      = RSLORA,
+    loftq_config    = None,
+)
+
+# Load Dataset ==============================================
+
+dataset = load_dataset(
+    "json",
+    data_files={
+        "train": TRAIN_SET,
+    },
+    split="train",
+)
+
+EOS_TOKEN = tokenizer.eos_token
+
+def append_eos(batch):
+    return {
+        "text": [
+            text
+            if text.rstrip().endswith(EOS_TOKEN)
+            else text + EOS_TOKEN
+            for text in batch["text"]
+        ]
+    }
+
+dataset = dataset.map(
+    append_eos,
+    batched=True,
+    desc="Appending EOS",
+)
+
+# Training Config =========================================
+
+training_args = UnslothTrainingArguments(
+    per_device_train_batch_size = BATCH_SIZE,
+    gradient_accumulation_steps = GRAD_ACC,
+
+    num_train_epochs            = EPOCHS,
+    max_steps                   = MAX_STEPS,
+    warmup_steps                = WARMUP_STEPS,
+
+    learning_rate               = LEARNING_RATE,
+    embedding_learning_rate     = EMBED_LR,
+
+    optim                       = OPTIMIZER,
+    weight_decay                = WEIGHT_DECAY,
+    lr_scheduler_type           = SCHEDULER,
+
+    logging_steps               = LOG_FREQ,
+    save_steps                  = SAVE_STEPS,
+
+    fp16                        = not is_bfloat16_supported(),
+    bf16                        = is_bfloat16_supported(),
+
+    seed                        = RANDOM_SEED,
+    output_dir                  = OUT_DIR,
+    
+    eval_strategy               = "no", # All files are being used for CPT training.
+
+    report_to                   = REPORT_TO,
+    logging_dir                 = TENSORBRD_DIR,
+)
+
+trainer = UnslothTrainer(
+    model               = model,
+    tokenizer           = tokenizer,
+    train_dataset       = dataset,
+    dataset_text_field  = "text",
+    max_seq_length      = MAX_SEQ_LENGTH,
+    dataset_num_proc    = 4,
+    packing             = PACKING,
+    args                = training_args,
+)
+
+# GPU INFO ================================================
+
+gpu_stats = torch.cuda.get_device_properties(0)
+start_gpu_memory = round(torch.cuda.max_memory_reserved() / 1024 / 1024 / 1024, 3)
+max_memory = round(gpu_stats.total_memory / 1024 / 1024 / 1024, 3)
+print(f"GPU = {gpu_stats.name}. Max memory = {max_memory} GB.")
+print(f"{start_gpu_memory} GB of memory reserved.")
+
+# TRAIN ================================================
+
+trainer_stats = trainer.train()
+
+# SAVE ================================================
+
+if MERGE:
+    model.save_pretrained_merged(OUT_NAME, tokenizer, save_method = SAVE_METHOD,)
+else: 
+    model.save_pretrained(f"{OUT_NAME}-adapter")  # Local saving
+    tokenizer.save_pretrained(f"{OUT_NAME}-adapter")
+
+if PUSH_HF:
+     model.push_to_hub_merged(f"{HF_ORG}/JacLLM-{BASE_MODEL}", tokenizer, save_method = SAVE_METHOD, token = HF_TOKEN)

@@ -1,5 +1,5 @@
 .claude
 raw/
-train/cpt/outputs/
+outputs
 adapter/
 unsloth_compiled_cache
