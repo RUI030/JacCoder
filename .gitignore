@@ -1,5 +1,9 @@
 .claude
-raw/
+raw
 outputs
-adapter/
+adapter
 unsloth_compiled_cache
+output
+__pycache__
+archived
+draft

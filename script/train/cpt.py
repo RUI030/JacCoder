@@ -1,4 +1,5 @@
 import os, re
+from pathlib import Path
 from unsloth import FastLanguageModel
 import torch
 from datasets import load_dataset
@@ -23,7 +24,7 @@ LOAD_IN_4BIT   = True
 
 # Dataset Setting ==========================================
 
-DATA_DIR      = "../../dataset/CPT"
+DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/CPT"
 DATASET       = "Ayush-ground-truth"
 TRAIN_SET     = [ f"{DATA_DIR}/{DATASET}/train.jsonl",
                   f"{DATA_DIR}/{DATASET}/valid.jsonl"]
@@ -32,8 +33,8 @@ SPLIT         = "train"
 
 # Output Setting ==========================================
 
-OUT_DIR       = f"../../output/{timestamp}"
-OUT_NAME      = f"{BASE_MODEL}-{DATASET}"
+OUT_DIR       = f"{Path(__file__).resolve().parent}/../../output/{timestamp}-{DATASET}"
+OUT_NAME      = f"{BASE_MODEL}"
 MERGE         = False
 SAVE_METHOD   = "merged_4bit" # or "merged_16bit"
 
@@ -60,10 +61,10 @@ EMBED_LR      = 0
 
 SCHEDULER     = "linear"
 WARMUP_STEPS  = 5
-MAX_STEPS     = 0           # nonpositive => train by epochs
+MAX_STEPS     = -1           # < 0 => train by epochs
 WEIGHT_DECAY  = 1e-3
 
-SAVE_STEPS    = 100
+SAVE_STEPS    = 50
 EVAL_STEPS    = 0.1
 
 LORA_RANK     = 128

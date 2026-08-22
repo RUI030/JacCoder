@@ -19,6 +19,13 @@ torchao==0.18.0
 # Notebook kernel support.
 ipykernel>=6.29
 
+tensorboardX
+
+# Data preprocc
+mistletoe
+
 # Do not pin torch, torchvision, triton, or xformers here. setup_env.sh invokes
 # uv with --torch-backend=auto so their binary builds match the available GPU,
 # CUDA driver, platform, and each other.
+
+
