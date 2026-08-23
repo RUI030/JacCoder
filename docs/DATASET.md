@@ -23,6 +23,21 @@ This folder contains dataset for finetuning LLM for Jac. Using Hugging Face form
 | **function**  | Others just basic jac   |
 Not sure if we can use some tools to make more accurate classification
 
+**SFT Task Type**
+| Task Type     | Explain                                  | is_code |
+| ------------- | ---------------------------------------- | ------- |
+| **code**      | code completion                          | ⭕      |
+| **fim**       | fill in middle style (TODO)              | ⭕      |
+| **py2jac**    | convert python to jac                    | ⭕      |
+| **js2jac**    | convert JS to jac                        | ⭕      |
+| **mcq**       | multiple choice questions                |         |
+| **answer**    | answer jac concepts                      |         |
+| **diff**      | given v1 and commit message, complete v2 | ⭕      |
+| **session**   | Claude code session history for training |         |
+Is code means we can run jac check, jac run,...etc as validation gate.
+\<TODO\> May have small set of code that has test bench
+Current code may not have `with entry {}` block
+
 # Format
 ## JSONL
 ### CPT - Continual Pre-trainning

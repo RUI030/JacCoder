@@ -1,7 +1,9 @@
-import json, random
+import json, random, sys
 from pathlib import Path
-from datasets import load_dataset
-from classifier import classify
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from utils.io import json2parquet, load_jac
+from classifier import classify_structural as classify
 
 # Setting =================================================
 DS_FORMAT = "jac"  # or "markdown", "repo", "diff", "session"
@@ -18,26 +20,6 @@ VALID_SIZE = 0.2
 SEED       = 3407
 
 # Functions ===============================================
-def json2parquet(in_dir=OUT_DIR, out_dir=OUT_DIR):
-    """Convert every JSONL split in a directory to Parquet."""
-    in_dir = Path(in_dir)
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    files = sorted(in_dir.glob("*.jsonl"))
-    if not files:
-        raise FileNotFoundError(f"No JSONL files found in: {in_dir}")
-
-    for file_path in files:
-        ds = load_dataset("json", data_files=str(file_path), split="train")
-        ds.to_parquet(f"{out_dir}/{file_path.stem}.parquet")
-
-
-def load_jac(fp) -> str:
-    """Read Jac source; json.dump handles special characters later."""
-    return Path(fp).read_text(encoding="utf-8")
-
-
 def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
     """
     Convert Jac files into reproducible train and validation CPT splits.
@@ -56,7 +38,7 @@ def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
     if not 0 <= VALID_SIZE < 1:
         raise ValueError("VALID_SIZE must be between 0 (inclusive) and 1")
 
-    jac_files = sorted(in_dir.rglob("*.jac"))
+    jac_files = sorted(p for p in in_dir.rglob("*.jac") if p.is_file())
     if not jac_files:
         raise FileNotFoundError(f"No .jac files found in: {in_dir}")
 

@@ -9,6 +9,16 @@
             "min": 81,
             "max": 3887
         },
+        "histogram": {
+            "<=100": 18,
+            "101-200": 1176,
+            "201-500": 3476,
+            "501-1000": 1219,
+            "1001-2000": 197,
+            "2001-5000": 16,
+            "5001-10000": 0,
+            ">10000": 0
+        },
         "property": {
             "format": {
                 "diff": 0,
@@ -19,8 +29,8 @@
             },
             "class": {
                 "fullstack": 0,
-                "function": 6039,
-                "graph": 63,
+                "function": 6102,
+                "graph": 0,
                 "osp": 0
             },
             "source": {
@@ -36,13 +46,7 @@
                 "format": "jac",
                 "class": "function",
                 "source": "code",
-                "count": 6039
-            },
-            {
-                "format": "jac",
-                "class": "graph",
-                "source": "code",
-                "count": 63
+                "count": 6102
             }
         ]
     },
@@ -56,6 +60,16 @@
             "min": 61,
             "max": 2608
         },
+        "histogram": {
+            "<=100": 5,
+            "101-200": 323,
+            "201-500": 856,
+            "501-1000": 272,
+            "1001-2000": 65,
+            "2001-5000": 4,
+            "5001-10000": 0,
+            ">10000": 0
+        },
         "property": {
             "format": {
                 "diff": 0,
@@ -66,8 +80,8 @@
             },
             "class": {
                 "fullstack": 0,
-                "function": 1504,
-                "graph": 21,
+                "function": 1525,
+                "graph": 0,
                 "osp": 0
             },
             "source": {
@@ -83,13 +97,7 @@
                 "format": "jac",
                 "class": "function",
                 "source": "code",
-                "count": 1504
-            },
-            {
-                "format": "jac",
-                "class": "graph",
-                "source": "code",
-                "count": 21
+                "count": 1525
             }
         ]
     }

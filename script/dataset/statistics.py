@@ -13,6 +13,7 @@ PROPERTY_VALUES = {
     "source": ["code", "docs", "article", "agent", "other"],
 }
 SPLITS = ("train", "valid")
+LENGTH_BINS = [100, 200, 500, 1000, 2000, 5000, 10000]  # char upper-bounds; last bucket = ">last"
 
 
 def sample_text(sample):
@@ -70,6 +71,21 @@ def length_statistics(lengths):
     }
 
 
+def length_histogram(lengths, bins=LENGTH_BINS):
+    counts = [0] * (len(bins) + 1)
+    for x in lengths:
+        for i, edge in enumerate(bins):
+            if x <= edge:
+                counts[i] += 1
+                break
+        else:
+            counts[-1] += 1
+    labels = [f"<={bins[0]}"]
+    labels += [f"{bins[i-1]+1}-{bins[i]}" for i in range(1, len(bins))]
+    labels += [f">{bins[-1]}"]
+    return dict(zip(labels, counts))
+
+
 def read_split(ds_dir, split):
     files = sorted(Path(ds_dir).glob(f"{split}*.jsonl"))
     for file_path in files:
@@ -119,6 +135,7 @@ def summarize_split(ds_dir, split):
     return {
         "count": count,
         "length": length_report,
+        "histogram": length_histogram(lengths),
         "property": {
             name: dict(sorted(counts.items()))
             for name, counts in properties.items()
