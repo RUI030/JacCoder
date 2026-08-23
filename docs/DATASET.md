@@ -9,8 +9,8 @@ This folder contains dataset for finetuning LLM for Jac. Using Hugging Face form
 
 | Format       | Explain                 | CPT | SFT |
 | ------------ | ----------------------- | --- | --- |
-| **.jac**     | Single `.jac` code file | ⭕  | ⭕  |
-| **.md**      | markdown files          | ⭕  | ⭕  |
+| **function** | Single `.jac` code file | ⭕  | ⭕  |
+| **markdown** | markdown files          | ⭕  | ⭕  |
 | **repo**     | fullstack jac with docs | ⭕  | ⭕  |
 | **session**  | Claude code sessions    |     | ⭕  |
 | **diff**     | git diff                |     | ⭕  |
@@ -61,10 +61,10 @@ Metadata, used for dataset statistics, same as CPT.
 
 # Format
 More system and instruction templates are available at `script/dataset/prompt_template.json` It is better to have template for each dataset.
-## Single Jac File
+## Function
 ### CPT
 The following code should be in the `"text"` column.
-* **With Frontmatter**
+* **Specify Jac Lang in comment**
 ```python
 # Language: Jac
 """
