@@ -1,0 +1,96 @@
+{
+    "train": {
+        "count": 6102,
+        "length": {
+            "unit": "characters",
+            "avg": 396.05,
+            "median": 319.0,
+            "std": 268.28,
+            "min": 81,
+            "max": 3887
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 6102,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 6039,
+                "graph": 63,
+                "osp": 0
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 6102,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "jac",
+                "class": "function",
+                "source": "code",
+                "count": 6039
+            },
+            {
+                "format": "jac",
+                "class": "graph",
+                "source": "code",
+                "count": 63
+            }
+        ]
+    },
+    "valid": {
+        "count": 1525,
+        "length": {
+            "unit": "characters",
+            "avg": 398.69,
+            "median": 315,
+            "std": 289.03,
+            "min": 61,
+            "max": 2608
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 1525,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 1504,
+                "graph": 21,
+                "osp": 0
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 1525,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "jac",
+                "class": "function",
+                "source": "code",
+                "count": 1504
+            },
+            {
+                "format": "jac",
+                "class": "graph",
+                "source": "code",
+                "count": 21
+            }
+        ]
+    }
+}

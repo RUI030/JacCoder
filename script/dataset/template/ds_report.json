@@ -1,0 +1,77 @@
+{
+    "train": {
+        "count": 0,
+        "length": {
+            "unit": "characters",
+            "avg": 0,
+            "median": 0,
+            "std": 0,
+            "min": 0,
+            "max": 0
+        },
+        "property": {
+            "format": {
+                "jac": 0,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0,
+                "diff": 0
+            },
+            "class": {
+                "function": 0,
+                "graph": 0,
+                "osp": 0,
+                "fullstack": 0
+            },
+            "source": {
+                "code": 0,
+                "docs": 0,
+                "article": 0,
+                "agent": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "jac",
+                "class": "function",
+                "source": "code",
+                "count": 0
+            }
+        ]
+    },
+    "valid": {
+        "count": 0,
+        "length": {
+            "unit": "characters",
+            "avg": 0,
+            "median": 0,
+            "std": 0,
+            "min": 0,
+            "max": 0
+        },
+        "property": {
+            "format": {
+                "jac": 0,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0,
+                "diff": 0
+            },
+            "class": {
+                "function": 0,
+                "graph": 0,
+                "osp": 0,
+                "fullstack": 0
+            },
+            "source": {
+                "code": 0,
+                "docs": 0,
+                "article": 0,
+                "agent": 0,
+                "other": 0
+            }
+        },
+        "combinations": []
+    }
+}

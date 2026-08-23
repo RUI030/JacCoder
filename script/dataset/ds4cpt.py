@@ -1,43 +1,108 @@
-import os, json
+import json, random
 from pathlib import Path
 from datasets import load_dataset
+from classifier import classify
 
 # Setting =================================================
-FORMAT  = "function" # or "markdown", "repo", "diff", "session"
-DS_NAME = "Nitin-10k-jac-functions"
+DS_FORMAT = "jac"  # or "markdown", "repo", "diff", "session"
+DS_NAME   = "Nitin-10k-jac-functions"
+SOURCE    = "code"  # "code", "docs", "article", "agent", "other"
 
-DS_ROOT = f"{Path(__file__).resolve().parent}../../dataset"
-IN_DIR  = f"{DS_ROOT}/raw/{FORMAT}/{DS_NAME}"
+DS_ROOT = f"{Path(__file__).resolve().parent}/../../dataset"
+IN_DIR  = f"{DS_ROOT}/raw/{DS_FORMAT}/{DS_NAME}"
 OUT_DIR = f"{DS_ROOT}/CPT/{DS_NAME}"
 
-PROMPT  = f"{DS_ROOT}/raw/prompt_template.json"
-FORMAT  = "jsonl" # or "parquet"
+PROMPT     = f"{DS_ROOT}/raw/{DS_FORMAT}/prompt_template.json"
+OUT_FORMAT = "jsonl"  # or "parquet"
+VALID_SIZE = 0.2
+SEED       = 3407
 
 # Functions ===============================================
-def json2parquet(in_dir=IN_DIR, out_dir=OUT_DIR):
-    ds = load_dataset("json", data_files=in_dir, split="train")
-    ds.to_parquet(out_dir)
+def json2parquet(in_dir=OUT_DIR, out_dir=OUT_DIR):
+    """Convert every JSONL split in a directory to Parquet."""
+    in_dir = Path(in_dir)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-# <TODO>:
-# Do we need this? or we just json dump?
-def load_jac(fp)->str:
-    # deal with special character that might break things like ", ', `, \n...
-    return "converted strings here"
+    files = sorted(in_dir.glob("*.jsonl"))
+    if not files:
+        raise FileNotFoundError(f"No JSONL files found in: {in_dir}")
 
-def jac2cpt(in_dir = IN_DIR, out_dir = OUT_DIR, format = FORMAT):
+    for file_path in files:
+        ds = load_dataset("json", data_files=str(file_path), split="train")
+        ds.to_parquet(f"{out_dir}/{file_path.stem}.parquet")
+
+
+def load_jac(fp) -> str:
+    """Read Jac source; json.dump handles special characters later."""
+    return Path(fp).read_text(encoding="utf-8")
+
+
+def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
     """
-    add a commet to tell the model this is jac
-    json format first
-    user decide if convert in parquet with `format` var
+    Convert Jac files into reproducible train and validation CPT splits.
+
+    Add a randomly selected Jac-language comment to each sample, write JSONL
+    first, then optionally convert the JSONL files to Parquet.
     """
-    # Recursively read the .jac file in in_dir
+    in_dir = Path(in_dir)
+    out_dir = Path(out_dir)
+    format = format.lower()
 
-    # Randomly add prefix commemnt
-    with open(PROMPT, "r", encoding="utf-8") as f:
-        prompt = json.load(f)
+    if format not in {"jsonl", "parquet"}:
+        raise ValueError("format must be either 'jsonl' or 'parquet'")
+    if not in_dir.is_dir():
+        raise NotADirectoryError(f"Input directory not found: {in_dir}")
+    if not 0 <= VALID_SIZE < 1:
+        raise ValueError("VALID_SIZE must be between 0 (inclusive) and 1")
 
-    # Formatting to {"text":"<prefix>\n<converted jac string>"}
+    jac_files = sorted(in_dir.rglob("*.jac"))
+    if not jac_files:
+        raise FileNotFoundError(f"No .jac files found in: {in_dir}")
 
-    
-        
+    with Path(PROMPT).open("r", encoding="utf-8") as file:
+        prompts = json.load(file).get("cpt", [])
+    if not prompts:
+        raise ValueError(f"No CPT prompts found in: {PROMPT}")
 
+    rng = random.Random(SEED)
+    rng.shuffle(jac_files)
+    valid_count = int(len(jac_files) * VALID_SIZE)
+    splits = {
+        "valid": jac_files[:valid_count],
+        "train": jac_files[valid_count:],
+    }
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for split, files in splits.items():
+        output_file = Path(f"{out_dir}/{split}.jsonl")
+        with output_file.open("w", encoding="utf-8") as out:
+            for file_path in files:
+                source = load_jac(file_path).strip()
+                record = {
+                    "text": f"{rng.choice(prompts)}\n{source}\n",
+                    "meta": {
+                        "source": SOURCE,
+                        "format": "jac",
+                        "class": classify(source),
+                    },
+                }
+                json.dump(record, out, ensure_ascii=False)
+                out.write("\n")
+
+    if format == "parquet":
+        json2parquet(out_dir, out_dir)
+
+    print(
+        f"Created {len(splits['train'])} train and "
+        f"{len(splits['valid'])} validation samples in {out_dir}"
+    )
+
+
+# Run =====================================================
+if __name__ == "__main__":
+    match DS_FORMAT:
+        case "jac":
+            jac2cpt()
+        case _:
+            raise ValueError(f"Dataset format not supported: {DS_FORMAT}")

@@ -9,11 +9,19 @@ This folder contains dataset for finetuning LLM for Jac. Using Hugging Face form
 
 | Format       | Explain                 | CPT | SFT |
 | ------------ | ----------------------- | --- | --- |
-| **function** | Single `.jac` code file | ⭕  | ⭕  |
+| **jac**      | Single `.jac` code file | ⭕  | ⭕  |
 | **markdown** | markdown files          | ⭕  | ⭕  |
 | **repo**     | fullstack jac with docs | ⭕  | ⭕  |
 | **session**  | Claude code sessions    |     | ⭕  |
 | **diff**     | git diff                |     | ⭕  |
+
+| Class         | Keywords                |
+| ------------- | ----------------------- |
+| **fullstack** | JSX, cl                 |
+| **osp**       | walker, spawn           |
+| **graph**     | node, edge              |
+| **function**  | Others just basic jac   |
+Not sure if we can use some tools to make more accurate classification
 
 # Format
 ## JSONL
@@ -31,8 +39,8 @@ Metadata, used for dataset statistics
     "text": "YOUR_TRAINING_DATA",
     "meta": 
     {
-        "source": ["blog", "code", "book", "other"],
-        "format": ["jac", "md", "repo", "session", "diff"],
+        "source": ["code", "docs", "article", "agent", "other"],
+        "format": ["jac", "markdown", "repo", "session", "diff"],
         "class":  ["function", "osp", "fullstack"]
     }
 }
@@ -61,7 +69,7 @@ Metadata, used for dataset statistics, same as CPT.
 
 # Format
 More system and instruction templates are available at `script/dataset/prompt_template.json` It is better to have template for each dataset.
-## Function
+## Jac Function
 ### CPT
 The following code should be in the `"text"` column.
 * **Specify Jac Lang in comment**
