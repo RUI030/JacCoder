@@ -13,6 +13,14 @@
     ],
     "code_completion":[
         "Complete the following Jac code based on the docstring and signature:",
-        "Finished the jac code"
+        "Finish the jac code below. Wrap your answer in ```jac <CODE>```.",
+        "Given the docstring and imports below, write the full Jac implementation:",
+        "Here is the start of a Jac function. Complete it and return the whole file wrapped in ```jac ... ```.",
+        "Write the Jac function described by the comment(s) below. Reply with just the code, wrapped in ```jac ... ```.",
+        "Implement the following in Jac. Include the docstring in your answer and wrap the code in ```jac ... ```.",
+        "Continue this Jac source. Return the complete file inside a ```jac``` code block.",
+        "Fill in the missing Jac implementation for the description below:",
+        "Please provide the full Jac code for the function described. Respond with a ```jac ... ``` block only.",
+        "Based on the header below, produce the corresponding Jac implementation."
     ]
 }

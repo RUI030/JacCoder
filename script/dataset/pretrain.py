@@ -12,7 +12,7 @@ SOURCE    = "code"  # "code", "docs", "article", "agent", "other"
 
 DS_ROOT = f"{Path(__file__).resolve().parent}/../../dataset"
 IN_DIR  = f"{DS_ROOT}/raw/{DS_FORMAT}/{DS_NAME}"
-OUT_DIR = f"{DS_ROOT}/CPT/{DS_NAME}"
+OUT_DIR = f"{DS_ROOT}/cpt/{DS_NAME}"
 
 PROMPT     = f"{Path(__file__).resolve().parent}/template/prompt_template.json"
 OUT_FORMAT = "jsonl"  # or "parquet"

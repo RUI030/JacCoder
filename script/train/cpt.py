@@ -24,7 +24,7 @@ LOAD_IN_4BIT   = True
 
 # Dataset Setting ==========================================
 
-DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/CPT"
+DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/cpt"
 DATASET       = "Ayush-ground-truth"
 TRAIN_SET     = [ f"{DATA_DIR}/{DATASET}/train.jsonl",
                   f"{DATA_DIR}/{DATASET}/valid.jsonl"]
