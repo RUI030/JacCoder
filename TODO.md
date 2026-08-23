@@ -6,3 +6,4 @@
 [ ] plot_eval.ipynb
 [ ] SFT training pipeline
 [ ] markdown collecting and preproc
+[ ] slide: current situation, bottleneck, plan, resource required

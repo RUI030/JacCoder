@@ -31,7 +31,7 @@ Not sure if we can use some tools to make more accurate classification
 | **py2jac**          | convert python to jac                    | ⭕      |
 | **js2jac**          | convert JS to jac                        | ⭕      |
 | **mcq**             | multiple choice questions                |         |
-| **answer**          | answer jac concepts                      |         |
+| **qa**              | answer jac concepts                      |         |
 | **diff**            | given v1 and commit message, complete v2 | ⭕      |
 | **session**         | Claude code session history for training |         |
 Is code means we can run jac check, jac run,...etc as validation gate.

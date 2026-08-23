@@ -13,7 +13,7 @@ TASK_TYPE = "code_completion"
 
 DS_ROOT = f"{Path(__file__).resolve().parent}/../../dataset"
 IN_DIR  = f"{DS_ROOT}/raw/{DS_FORMAT}/{DS_NAME}"
-OUT_DIR = f"{DS_ROOT}/sft/{DS_NAME}-{TASK_TYPE}"
+OUT_DIR = f"{DS_ROOT}/sft/{TASK_TYPE}/{DS_NAME}"
 
 PROMPT     = f"{Path(__file__).resolve().parent}/template/prompt_template.json"
 OUT_FORMAT = "jsonl"
@@ -26,13 +26,16 @@ DEF_RE = re.compile(r"^\s*def\s+\w+", re.M)
 def split_at_def(source: str) -> tuple[str, str] | None:
     """Return (instruction_part, full_source) if a `def` line exists, else None.
 
-    Instruction part = everything above the first `def` line (docstring, imports,
-    comments). Answer = the full source wrapped in ```jac fences.
+    Instruction part = everything above the first `def` line PLUS the signature
+    up to and including the opening `{`. Answer = the full source.
     """
     match = DEF_RE.search(source)
     if not match:
         return None
-    head = source[: match.start()].rstrip()
+    brace = source.find("{", match.end())
+    if brace == -1:
+        return None
+    head = source[: brace + 1].rstrip()
     return head, source.strip()
 
 
