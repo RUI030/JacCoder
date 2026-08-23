@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from utils.io import json2parquet, load_jac
-from classifier import classify_structural as classify
+from utils.classifier import classify_structural as classify
 
 # Setting =================================================
 DS_FORMAT = "jac"  # or "markdown", "repo", "diff", "session"
@@ -14,7 +14,7 @@ DS_ROOT = f"{Path(__file__).resolve().parent}/../../dataset"
 IN_DIR  = f"{DS_ROOT}/raw/{DS_FORMAT}/{DS_NAME}"
 OUT_DIR = f"{DS_ROOT}/CPT/{DS_NAME}"
 
-PROMPT     = f"{DS_ROOT}/raw/{DS_FORMAT}/prompt_template.json"
+PROMPT     = f"{Path(__file__).resolve().parent}/template/prompt_template.json"
 OUT_FORMAT = "jsonl"  # or "parquet"
 VALID_SIZE = 0.2
 SEED       = 3407
@@ -43,7 +43,7 @@ def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
         raise FileNotFoundError(f"No .jac files found in: {in_dir}")
 
     with Path(PROMPT).open("r", encoding="utf-8") as file:
-        prompts = json.load(file).get("cpt", [])
+        prompts = json.load(file).get("cpt_jac", [])
     if not prompts:
         raise ValueError(f"No CPT prompts found in: {PROMPT}")
 

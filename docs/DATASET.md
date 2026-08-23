@@ -24,16 +24,16 @@ This folder contains dataset for finetuning LLM for Jac. Using Hugging Face form
 Not sure if we can use some tools to make more accurate classification
 
 **SFT Task Type**
-| Task Type     | Explain                                  | is_code |
-| ------------- | ---------------------------------------- | ------- |
-| **code**      | code completion                          | ⭕      |
-| **fim**       | fill in middle style (TODO)              | ⭕      |
-| **py2jac**    | convert python to jac                    | ⭕      |
-| **js2jac**    | convert JS to jac                        | ⭕      |
-| **mcq**       | multiple choice questions                |         |
-| **answer**    | answer jac concepts                      |         |
-| **diff**      | given v1 and commit message, complete v2 | ⭕      |
-| **session**   | Claude code session history for training |         |
+| Task Type           | Explain                                  | is_code |
+| ------------------- | ---------------------------------------- | ------- |
+| **code_completion** | code completion                          | ⭕      |
+| **fim**             | fill in middle style (TODO)              | ⭕      |
+| **py2jac**          | convert python to jac                    | ⭕      |
+| **js2jac**          | convert JS to jac                        | ⭕      |
+| **mcq**             | multiple choice questions                |         |
+| **answer**          | answer jac concepts                      |         |
+| **diff**            | given v1 and commit message, complete v2 | ⭕      |
+| **session**         | Claude code session history for training |         |
 Is code means we can run jac check, jac run,...etc as validation gate.
 \<TODO\> May have small set of code that has test bench
 Current code may not have `with entry {}` block
@@ -83,7 +83,7 @@ Metadata, used for dataset statistics, same as CPT.
 ```
 
 # Format
-More system and instruction templates are available at `script/dataset/prompt_template.json` It is better to have template for each dataset.
+More system and instruction templates are available at `script/dataset/template/prompt_template.json` It is better to have template for each dataset.
 ## Jac Function
 ### CPT
 The following code should be in the `"text"` column.
@@ -156,7 +156,7 @@ A node in jac is....
 ```
 
 ### SFT
-Part of the data will include system prompt. (see `script/dataset/prompt_template.json`)
+Part of the data will include system prompt. (see `script/dataset/template/prompt_template.json`)
 QA set genrated by Opus.
 * Conceptual QA
 * Coding example

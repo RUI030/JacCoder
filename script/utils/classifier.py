@@ -20,7 +20,7 @@ Classifier options
 |                |                       | docstrings, comments, and variable names.                                         |
 | **Structural** | `classify_structural` | Strip strings + comments, then match archetype declarations at line start         |
 |                |                       | (`^node Name {`, `^walker Name {`, JSX component tags, `from '...'` imports).     |
-|                |                       | Canonical build-time classifier used by `ds4cpt.py`.                              |
+|                |                       | Canonical build-time classifier used by `pretrain.py`.                            |
 
 """
 
