@@ -22,7 +22,7 @@ LOAD_IN_4BIT = True
 
 # Generation settings =========================================================
 
-SYSTEM_PROMPT = "You are a helpful assistant."
+SYSTEM_PROMPT = "You are an expert AI assistant specializing in the jac programming language."
 MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.7
 TOP_P = 0.9
