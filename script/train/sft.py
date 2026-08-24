@@ -38,6 +38,7 @@ BASE_MODEL     = "ornith-ai/Ornith-1.5-9B"
 MAX_SEQ_LENGTH = 4096
 DTYPE          = None
 LOAD_IN_4BIT   = True
+TEXT_ONLY      = True  # Ornith is processor-wrapped VLM; unwrap so adapter keys stay flat (matches eval/inference)
 CHAT_TEMPLATE  = "qwen-2.5"  # Ornith is Qwen3-based; qwen-2.5 template is compatible
 
 # Dataset Setting ==========================================
@@ -108,6 +109,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     max_seq_length = MAX_SEQ_LENGTH,
     dtype          = DTYPE,
     load_in_4bit   = LOAD_IN_4BIT,
+    text_only      = TEXT_ONLY,
 )
 
 tokenizer = get_chat_template(tokenizer, chat_template=CHAT_TEMPLATE)

@@ -9,14 +9,19 @@ def load_model(
     max_seq_length: int,
     load_in_4bit: bool = True,
     dtype=None,
+    device_map=None,
 ):
     """Load base model or LoRA adapter path.
 
     Restores `config.architectures` after the Unsloth 2026.8.19 text-only VLM
     adapter path leaves it as None, which breaks `generate()`.
+
+    `device_map` defaults to letting unsloth/accelerate decide; pass
+    {"": "cuda:0"} to force everything on the primary GPU (avoids CPU spill
+    when loading an adapter checkpoint on a modest VRAM box).
     """
     print(f"Loading: {model_name}")
-    model, tokenizer = FastLanguageModel.from_pretrained(
+    kwargs = dict(
         model_name=model_name,
         max_seq_length=max_seq_length,
         dtype=dtype,
@@ -24,6 +29,9 @@ def load_model(
         text_only=True,
         fast_inference=False,
     )
+    if device_map is not None:
+        kwargs["device_map"] = device_map
+    model, tokenizer = FastLanguageModel.from_pretrained(**kwargs)
 
     base = model.get_base_model() if hasattr(model, "get_base_model") else model
     arch = type(base).__name__

@@ -20,6 +20,7 @@ _ap.add_argument("--adapter", "--adapter-path", dest="adapter")
 _ap.add_argument("--epochs", type=int)
 _ap.add_argument("--lr", type=float)
 _ap.add_argument("--rank", type=int)
+_ap.add_argument("--max-steps", dest="max_steps", type=int)
 _args, _ = _ap.parse_known_args()
 
 # Model Setting ===========================================
@@ -27,9 +28,10 @@ _args, _ = _ap.parse_known_args()
 ADAPTER_PATH   = _args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
 BASE_MODEL     = "ornith-ai/Ornith-1.5-9B" # Base model
 
-MAX_SEQ_LENGTH = 4096 
+MAX_SEQ_LENGTH = 4096
 DTYPE          = None # None for auto detection
 LOAD_IN_4BIT   = True
+TEXT_ONLY      = True # Ornith is processor-wrapped VLM; unwrap so adapter keys stay flat (matches eval/inference)
 
 # Dataset Setting ==========================================
 
@@ -70,7 +72,7 @@ EMBED_LR      = 0
 
 SCHEDULER     = "linear"
 WARMUP_STEPS  = 5
-MAX_STEPS     = -1           # < 0 => train by epochs
+MAX_STEPS     = _args.max_steps if _args.max_steps is not None else -1  # < 0 => train by epochs
 WEIGHT_DECAY  = 1e-3
 
 SAVE_STEPS    = 50
@@ -103,6 +105,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     max_seq_length = MAX_SEQ_LENGTH,
     dtype = DTYPE,
     load_in_4bit = LOAD_IN_4BIT,
+    text_only = TEXT_ONLY,
     # token = "YOUR_HF_TOKEN", # HF Token for gated models
 )
 
