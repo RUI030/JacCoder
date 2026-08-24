@@ -103,6 +103,12 @@ python script/train/cpt.py
 
 Outputs go into `output/`.
 
+To see training loss, see
+```bash 
+tensorboard --logdir path/to/tensorboard
+```
+under `run` folder in the adapter folder
+
 ### Run local inference
 
 Edit the model settings in [`script/inference.py`](script/inference.py):

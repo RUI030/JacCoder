@@ -20,6 +20,7 @@ torchao==0.18.0
 ipykernel>=6.29
 
 tensorboardX
+tensorboard
 
 # Data preprocc
 mistletoe

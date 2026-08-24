@@ -26,10 +26,10 @@ LOAD_IN_4BIT   = True
 
 DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/cpt"
 DATASET       = "Ayush-ground-truth"
-TRAIN_SET     = [ f"{DATA_DIR}/{DATASET}/train.jsonl",
-                  f"{DATA_DIR}/{DATASET}/valid.jsonl"]
-VALID_SET     = []
-SPLIT         = "train"
+DO_EVAL       = False   # CPT eval OOMs on 16GB VRAM (unsloth fp32 upcast); flip when fixed
+TRAIN_SET     = [f"{DATA_DIR}/{DATASET}/train.jsonl"]
+_valid_fp     = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
+VALID_SET     = [str(_valid_fp)] if (DO_EVAL and _valid_fp.is_file()) else []
 
 # Output Setting ==========================================
 
@@ -70,18 +70,18 @@ EVAL_STEPS    = 0.1
 LORA_RANK     = 128
 LORA_ALPHA    = 32
 LORA_DROPOUT  = 0
-TARGET_MODULE = [ "q_proj", "k_proj", "v_proj", 
-                  "o_proj", "gate_proj", 
-                  "up_proj", "down_proj", 
-                  "embed_tokens", "lm_head" ]
+TARGET_MODULE = ["q_proj", "k_proj", "v_proj",
+                 "o_proj", "gate_proj",
+                 "up_proj", "down_proj",
+                 "embed_tokens", "lm_head"]
 RSLORA        = True
 
 BIAS          = "none"
 GRAD_CHECKPT  = "unsloth"
 
 RANDOM_SEED   = 3407
-PACKING       = False
-COMPLETION    = False # SFT
+PACKING       = True   # CPT: safe, big throughput win. Turn off only for debug.
+COMPLETION    = False  # SFT
 
 # Enviorment Setting ======================================
 
@@ -112,14 +112,6 @@ model = FastLanguageModel.get_peft_model(
 
 # Load Dataset ==============================================
 
-dataset = load_dataset(
-    "json",
-    data_files={
-        "train": TRAIN_SET,
-    },
-    split="train",
-)
-
 EOS_TOKEN = tokenizer.eos_token
 
 def append_eos(batch):
@@ -132,11 +124,13 @@ def append_eos(batch):
         ]
     }
 
-dataset = dataset.map(
-    append_eos,
-    batched=True,
-    desc="Appending EOS",
-)
+train_ds = load_dataset("json", data_files={"train": TRAIN_SET}, split="train")
+train_ds = train_ds.map(append_eos, batched=True, desc="Appending EOS (train)")
+
+eval_ds = None
+if VALID_SET:
+    eval_ds = load_dataset("json", data_files={"valid": VALID_SET}, split="valid")
+    eval_ds = eval_ds.map(append_eos, batched=True, desc="Appending EOS (valid)")
 
 # Training Config =========================================
 
@@ -163,22 +157,27 @@ training_args = UnslothTrainingArguments(
 
     seed                        = RANDOM_SEED,
     output_dir                  = OUT_DIR,
-    
-    eval_strategy               = "no", # All files are being used for CPT training.
+
+    eval_strategy               = "steps" if eval_ds is not None else "no",
+    eval_steps                  = EVAL_STEPS if eval_ds is not None else None,
+    per_device_eval_batch_size  = 1,
+    eval_accumulation_steps     = 1,        # spill eval logits to CPU each batch
+    bf16_full_eval              = is_bfloat16_supported(),  # halves eval VRAM
 
     report_to                   = REPORT_TO,
     logging_dir                 = TENSORBRD_DIR,
 )
 
 trainer = UnslothTrainer(
-    model               = model,
-    tokenizer           = tokenizer,
-    train_dataset       = dataset,
-    dataset_text_field  = "text",
-    max_seq_length      = MAX_SEQ_LENGTH,
-    dataset_num_proc    = 4,
-    packing             = PACKING,
-    args                = training_args,
+    model              = model,
+    tokenizer          = tokenizer,
+    train_dataset      = train_ds,
+    eval_dataset       = eval_ds,
+    dataset_text_field = "text",
+    max_seq_length     = MAX_SEQ_LENGTH,
+    dataset_num_proc   = 4,
+    packing            = PACKING,
+    args               = training_args,
 )
 
 # GPU INFO ================================================
