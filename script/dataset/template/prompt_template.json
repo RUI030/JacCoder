@@ -11,6 +11,18 @@
         "# Jac lang",
         "# written in jac"
     ],
+    "js2jac":[
+        "Convert the following JavaScript/TypeScript code into Jac. Return only a ```jac ... ``` block:",
+        "Translate this JS/TS snippet to idiomatic Jac. Wrap your answer in ```jac ... ```.",
+        "Rewrite the code below in Jac. Reply with only the Jac source in a ```jac``` block.",
+        "Port the JS/TS below to Jac. Keep the behavior identical. Return a single ```jac ... ``` block.",
+        "Please produce the Jac equivalent of the following TypeScript. Output only ```jac ... ```.",
+        "Given this JS/TS source, write the equivalent Jac. Respond with a ```jac ... ``` code block only.",
+        "Migrate the code below from JavaScript/TypeScript to Jac. Answer with ```jac ... ``` only.",
+        "Rewrite the following file in Jac, preserving semantics. Wrap the output in ```jac ... ```.",
+        "Convert JS/TS → Jac. Reply with the full Jac source inside ```jac ... ```.",
+        "Translate the TypeScript below into Jac. Output only a ```jac``` code block containing the translation."
+    ],
     "code_completion":[
         "Complete the following Jac code based on the docstring and signature:",
         "Finish the jac code below. Wrap your answer in ```jac <CODE>```.",
