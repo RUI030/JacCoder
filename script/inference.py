@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 BASE_MODEL   = "ornith-ai/Ornith-1.5-9B"
 ADAPTER_PATH = (
-    PROJECT_ROOT / "output/08-21_22-58-Ayush-ground-truth/checkpoint-195"
+    PROJECT_ROOT / "output/adapter/08-21_22-58-Ayush-ground-truth/checkpoint-195"
 )
 
 MAX_SEQ_LENGTH = 4096

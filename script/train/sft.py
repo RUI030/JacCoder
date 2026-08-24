@@ -40,7 +40,7 @@ VALID_SET  = [f"{DATA_DIR}/{TASK_TYPE}/{DATASET}/valid.jsonl"]
 
 # Output Setting ==========================================
 
-OUT_DIR       = f"{Path(__file__).resolve().parent}/../../output/{timestamp}-sft-{TASK_TYPE}-{DATASET}"
+OUT_DIR       = f"{Path(__file__).resolve().parent}/../../output/adapter/{timestamp}-sft-{TASK_TYPE}-{DATASET}"
 OUT_NAME      = f"{BASE_MODEL}-sft-{TASK_TYPE}"
 MERGE         = False
 SAVE_METHOD   = "merged_4bit"
@@ -204,10 +204,10 @@ trainer_stats = trainer.train()
 # SAVE ================================================
 
 if MERGE:
-    model.save_pretrained_merged(OUT_NAME, tokenizer, save_method=SAVE_METHOD)
+    model.save_pretrained_merged(f"{OUT_DIR}/merged", tokenizer, save_method=SAVE_METHOD)
 else:
-    model.save_pretrained(f"{OUT_NAME}-adapter")
-    tokenizer.save_pretrained(f"{OUT_NAME}-adapter")
+    model.save_pretrained(f"{OUT_DIR}/adapter")
+    tokenizer.save_pretrained(f"{OUT_DIR}/adapter")
 
 if PUSH_HF:
     model.push_to_hub_merged(

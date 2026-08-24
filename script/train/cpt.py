@@ -33,7 +33,7 @@ SPLIT         = "train"
 
 # Output Setting ==========================================
 
-OUT_DIR       = f"{Path(__file__).resolve().parent}/../../output/{timestamp}-{DATASET}"
+OUT_DIR       = f"{Path(__file__).resolve().parent}/../../output/adapter/{timestamp}-{DATASET}"
 OUT_NAME      = f"{BASE_MODEL}"
 MERGE         = False
 SAVE_METHOD   = "merged_4bit" # or "merged_16bit"
@@ -196,10 +196,10 @@ trainer_stats = trainer.train()
 # SAVE ================================================
 
 if MERGE:
-    model.save_pretrained_merged(OUT_NAME, tokenizer, save_method = SAVE_METHOD,)
-else: 
-    model.save_pretrained(f"{OUT_NAME}-adapter")  # Local saving
-    tokenizer.save_pretrained(f"{OUT_NAME}-adapter")
+    model.save_pretrained_merged(f"{OUT_DIR}/merged", tokenizer, save_method = SAVE_METHOD,)
+else:
+    model.save_pretrained(f"{OUT_DIR}/adapter")
+    tokenizer.save_pretrained(f"{OUT_DIR}/adapter")
 
 if PUSH_HF:
      model.push_to_hub_merged(f"{HF_ORG}/JacLLM-{BASE_MODEL}", tokenizer, save_method = SAVE_METHOD, token = HF_TOKEN)
