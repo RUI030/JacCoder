@@ -14,7 +14,7 @@ MAX_SEQ_LENGTH = 4096
 LOAD_IN_4BIT   = True
 
 RUN_DIR  = ""             # required: e.g. output/adapter/08-24_11-17-Ayush-ground-truth
-DATASET  = "Ayush-ground-truth"
+DATASET  = "Nitin-10k-jac-functions"
 VALID_FP = ""             # empty => auto from dataset/cpt/<DATASET>/valid.jsonl
 LIMIT    = 0              # 0 => all valid records
 

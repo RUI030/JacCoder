@@ -56,7 +56,7 @@ VALID_SET  = [f"{DATA_DIR}/{TASK_TYPE}/{DATASET}/valid.jsonl"]
 
 # Output Setting ==========================================
 
-OUT_DIR       = f"{Path(__file__).resolve().parent}/../../output/adapter/{timestamp}-sft-{TASK_TYPE}-{DATASET}"
+OUT_DIR       = str((Path(__file__).resolve().parent.parent.parent / "output" / "adapter" / f"{timestamp}-sft-{TASK_TYPE}-{DATASET}").resolve())
 OUT_NAME      = f"{BASE_MODEL}-sft-{TASK_TYPE}"
 MERGE         = False
 SAVE_METHOD   = "merged_4bit"
@@ -67,6 +67,7 @@ HF_TOKEN      = ""
 
 REPORT_TO     = ["tensorboard"]
 TENSORBRD_DIR = f"{OUT_DIR}/runs"
+Path(TENSORBRD_DIR).mkdir(parents=True, exist_ok=True)  # eager create, avoid TB async writer race
 LOG_FREQ      = 10
 
 # Hyperparameters =========================================
