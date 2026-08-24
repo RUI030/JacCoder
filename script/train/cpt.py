@@ -21,11 +21,15 @@ cli.add_argument("--epochs", type=int)
 cli.add_argument("--lr", type=float)
 cli.add_argument("--rank", type=int)
 cli.add_argument("--steps", dest="max_steps", type=int)
+cli.add_argument("--resume", dest="resume", help="checkpoint-N dir to resume from (restores optimizer/scheduler/RNG); mutex with --adapter")
 args, _ = cli.parse_known_args()
+if args.resume and args.adapter:
+    raise SystemExit("--resume and --adapter are mutually exclusive; --resume already loads adapter weights + optimizer state")
 
 # Model Setting ===========================================
 
 ADAPTER_PATH   = args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
+RESUME_FROM    = args.resume  or ""  # If not empty, resume trainer state from this checkpoint dir
 BASE_MODEL     = "ornith-ai/Ornith-1.5-9B" # Base model
 
 MAX_SEQ_LENGTH = 4096
@@ -38,7 +42,7 @@ TEXT_ONLY      = True # Ornith is processor-wrapped VLM; unwrap so adapter keys 
 DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/cpt"
 DATASET       = args.dataset or "Ayush-ground-truth"
 DO_EVAL       = False   # CPT eval OOMs on 16GB VRAM (unsloth fp32 upcast); flip when fixed
-TRAIN_SET     = [f"{DATA_DIR}/{DATASET}/train.jsonl"]
+TRAIN_SET     = [f"{DATA_DIR}/{DATASET}/valid.jsonl"]
 valid_fp      = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
 VALID_SET     = [str(valid_fp)] if (DO_EVAL and valid_fp.is_file()) else []
 
@@ -207,7 +211,7 @@ print(f"{start_gpu_memory} GB of memory reserved.")
 
 # TRAIN ================================================
 
-trainer_stats = trainer.train()
+trainer_stats = trainer.train(resume_from_checkpoint=RESUME_FROM or None)
 
 # SAVE ================================================
 

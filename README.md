@@ -103,23 +103,38 @@ python script/train/cpt.py
 
 Outputs go into `output/`.
 
-#### Continue training from an existing adapter
+#### Continue training
 
-Pass `--adapter <path>` (or set `ADAPTER_PATH` in the file) to resume from a prior checkpoint:
+Two flavors, pick the one that matches your intent:
+
+**`--resume <checkpoint-N path>`** — resume the exact same run
+- Restores adapter weights **and** optimizer state, LR scheduler, RNG, step counter
+- Loss curve continues seamlessly from where the run left off
+- Use for: recovering from a crash, adding more steps to a run
+- Path must be a `checkpoint-N/` folder (Trainer's full state), NOT the top-level `adapter/`
 
 ```bash
-python script/train/cpt.py --ds <dataset> --adapter output/adapter/<run>/adapter
+python script/train/cpt.py --ds <dataset> --resume output/adapter/<run>/checkpoint-100
 ```
 
-**Safe to change** when continuing: `--epochs`, `--lr`, `--steps`, dataset (`--ds`).
+**`--adapter <adapter path>`** — start a fresh run on top of an existing adapter
+- Loads adapter weights only; optimizer restarts from zero, LR schedule re-runs warmup, step counter resets to 0
+- Loss will visibly jump at step 0 (warmup + Adam moments = 0) — this is expected, **not** a continuation of the previous curve
+- Use for: fine-tuning a released adapter on a new dataset, second-stage training
 
-**Frozen by the checkpoint** (silently ignored if you pass them): `--rank`, `TARGET_MODULE`, `LORA_ALPHA`, `RSLORA`. These define the adapter's tensor shapes and cannot change mid-life.
+```bash
+python script/train/cpt.py --ds <new_dataset> --adapter output/adapter/<run>/adapter
+```
+
+`--resume` and `--adapter` are mutually exclusive.
+
+**Frozen by the loaded adapter in both modes** (silently ignored if you pass them): `--rank`, `TARGET_MODULE`, `LORA_ALPHA`, `RSLORA`. These define the adapter's tensor shapes and cannot change mid-life.
 
 To change any shape-affecting param, **merge the adapter into the base first**, then start a fresh run:
 
 1. `python script/merge_lora.py` — merge the old adapter into a standalone model
 2. Point `BASE_MODEL` in `cpt.py` at the merged output
-3. Run without `--adapter` (from-scratch on top of the merged base) with the new hyperparameters
+3. Run without `--adapter` / `--resume` (from-scratch on top of the merged base) with the new hyperparameters
 
 To see training loss, see
 ```bash 
