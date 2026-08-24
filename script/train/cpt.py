@@ -20,7 +20,7 @@ _ap.add_argument("--adapter", "--adapter-path", dest="adapter")
 _ap.add_argument("--epochs", type=int)
 _ap.add_argument("--lr", type=float)
 _ap.add_argument("--rank", type=int)
-_ap.add_argument("--max-steps", dest="max_steps", type=int)
+_ap.add_argument("--steps", dest="max_steps", type=int)
 _args, _ = _ap.parse_known_args()
 
 # Model Setting ===========================================
@@ -109,18 +109,23 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     # token = "YOUR_HF_TOKEN", # HF Token for gated models
 )
 
-model = FastLanguageModel.get_peft_model(
-    model,
-    r               = LORA_RANK,
-    target_modules  = TARGET_MODULE,
-    lora_alpha      = LORA_ALPHA,
-    lora_dropout    = LORA_DROPOUT,
-    bias            = BIAS,
-    use_gradient_checkpointing = GRAD_CHECKPT,
-    random_state    = RANDOM_SEED,
-    use_rslora      = RSLORA,
-    loftq_config    = None,
-)
+# When ADAPTER_PATH is set, from_pretrained already returned a PEFT-wrapped
+# model — calling get_peft_model again would double-wrap and error. Shape
+# hyperparameters (rank / target_modules / alpha) are then frozen by the
+# checkpoint; to change them, merge first (see README).
+if not ADAPTER_PATH:
+    model = FastLanguageModel.get_peft_model(
+        model,
+        r               = LORA_RANK,
+        target_modules  = TARGET_MODULE,
+        lora_alpha      = LORA_ALPHA,
+        lora_dropout    = LORA_DROPOUT,
+        bias            = BIAS,
+        use_gradient_checkpointing = GRAD_CHECKPT,
+        random_state    = RANDOM_SEED,
+        use_rslora      = RSLORA,
+        loftq_config    = None,
+    )
 
 # Load Dataset ==============================================
 

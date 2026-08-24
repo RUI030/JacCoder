@@ -103,6 +103,24 @@ python script/train/cpt.py
 
 Outputs go into `output/`.
 
+#### Continue training from an existing adapter
+
+Pass `--adapter <path>` (or set `ADAPTER_PATH` in the file) to resume from a prior checkpoint:
+
+```bash
+python script/train/cpt.py --ds <dataset> --adapter output/adapter/<run>/adapter
+```
+
+**Safe to change** when continuing: `--epochs`, `--lr`, `--steps`, dataset (`--ds`).
+
+**Frozen by the checkpoint** (silently ignored if you pass them): `--rank`, `TARGET_MODULE`, `LORA_ALPHA`, `RSLORA`. These define the adapter's tensor shapes and cannot change mid-life.
+
+To change any shape-affecting param, **merge the adapter into the base first**, then start a fresh run:
+
+1. `python script/merge_lora.py` — merge the old adapter into a standalone model
+2. Point `BASE_MODEL` in `cpt.py` at the merged output
+3. Run without `--adapter` (from-scratch on top of the merged base) with the new hyperparameters
+
 To see training loss, see
 ```bash 
 tensorboard --logdir path/to/tensorboard
