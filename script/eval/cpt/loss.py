@@ -21,16 +21,16 @@ LIMIT    = 0              # 0 => all valid records
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 # CLI overrides ============================================
-_ap = argparse.ArgumentParser(add_help=False)
-_ap.add_argument("--run",   dest="run",     help="training run dir (contains checkpoint-*/adapter/)")
-_ap.add_argument("--ds",    dest="dataset")
-_ap.add_argument("--valid", dest="valid",   help="explicit valid.jsonl path")
-_ap.add_argument("--limit", type=int)
-_args, _ = _ap.parse_known_args()
-if _args.run:     RUN_DIR  = _args.run
-if _args.dataset: DATASET  = _args.dataset
-if _args.valid:   VALID_FP = _args.valid
-if _args.limit:   LIMIT    = _args.limit
+cli = argparse.ArgumentParser(add_help=False)
+cli.add_argument("--run",   dest="run",     help="training run dir (contains checkpoint-*/adapter/)")
+cli.add_argument("--ds", "--dataset", dest="dataset")
+cli.add_argument("--valid", dest="valid",   help="explicit valid.jsonl path")
+cli.add_argument("--limit", type=int)
+args, _ = cli.parse_known_args()
+if args.run:     RUN_DIR  = args.run
+if args.dataset: DATASET  = args.dataset
+if args.valid:   VALID_FP = args.valid
+if args.limit:   LIMIT    = args.limit
 
 if not RUN_DIR:
     raise SystemExit("Provide --run or set RUN_DIR at top of file")
