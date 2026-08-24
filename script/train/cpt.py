@@ -1,4 +1,4 @@
-import os, re
+import argparse, os, re
 from pathlib import Path
 from unsloth import FastLanguageModel
 import torch
@@ -13,9 +13,18 @@ from datetime import datetime
 now = datetime.now()
 timestamp= now.strftime("%m-%d_%H-%M")
 
+# CLI overrides (any --flag beats the in-file default below) ===============
+_ap = argparse.ArgumentParser(add_help=False)
+_ap.add_argument("--ds", "--dataset", dest="dataset")
+_ap.add_argument("--adapter", "--adapter-path", dest="adapter")
+_ap.add_argument("--epochs", type=int)
+_ap.add_argument("--lr", type=float)
+_ap.add_argument("--rank", type=int)
+_args, _ = _ap.parse_known_args()
+
 # Model Setting ===========================================
 
-ADAPTER_PATH   = "" # If not empty, train on BASE_MODEL + ADAPTER
+ADAPTER_PATH   = _args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
 BASE_MODEL     = "ornith-ai/Ornith-1.5-9B" # Base model
 
 MAX_SEQ_LENGTH = 4096 
@@ -25,7 +34,7 @@ LOAD_IN_4BIT   = True
 # Dataset Setting ==========================================
 
 DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/cpt"
-DATASET       = "Ayush-ground-truth"
+DATASET       = _args.dataset or "Ayush-ground-truth"
 DO_EVAL       = False   # CPT eval OOMs on 16GB VRAM (unsloth fp32 upcast); flip when fixed
 TRAIN_SET     = [f"{DATA_DIR}/{DATASET}/train.jsonl"]
 _valid_fp     = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
@@ -50,13 +59,13 @@ LOG_FREQ      = 10
 
 # Hyperparameters =========================================
 
-EPOCHS        = 3
+EPOCHS        = _args.epochs or 3
 BATCH_SIZE    = 1
 GRAD_ACC      = 10
 
 OPTIMIZER     = "adamw_8bit"
 
-LEARNING_RATE = 5e-5
+LEARNING_RATE = _args.lr or 5e-5
 EMBED_LR      = 0
 
 SCHEDULER     = "linear"
@@ -67,7 +76,7 @@ WEIGHT_DECAY  = 1e-3
 SAVE_STEPS    = 50
 EVAL_STEPS    = 0.1
 
-LORA_RANK     = 128
+LORA_RANK     = _args.rank or 128
 LORA_ALPHA    = 32
 LORA_DROPOUT  = 0
 TARGET_MODULE = ["q_proj", "k_proj", "v_proj",
