@@ -14,18 +14,18 @@ now = datetime.now()
 timestamp= now.strftime("%m-%d_%H-%M")
 
 # CLI overrides (any --flag beats the in-file default below) ===============
-_ap = argparse.ArgumentParser(add_help=False)
-_ap.add_argument("--ds", "--dataset", dest="dataset")
-_ap.add_argument("--adapter", "--adapter-path", dest="adapter")
-_ap.add_argument("--epochs", type=int)
-_ap.add_argument("--lr", type=float)
-_ap.add_argument("--rank", type=int)
-_ap.add_argument("--steps", dest="max_steps", type=int)
-_args, _ = _ap.parse_known_args()
+cli = argparse.ArgumentParser(add_help=False)
+cli.add_argument("--ds", "--dataset", dest="dataset")
+cli.add_argument("--adapter", "--adapter-path", dest="adapter")
+cli.add_argument("--epochs", type=int)
+cli.add_argument("--lr", type=float)
+cli.add_argument("--rank", type=int)
+cli.add_argument("--steps", dest="max_steps", type=int)
+args, _ = cli.parse_known_args()
 
 # Model Setting ===========================================
 
-ADAPTER_PATH   = _args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
+ADAPTER_PATH   = args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
 BASE_MODEL     = "ornith-ai/Ornith-1.5-9B" # Base model
 
 MAX_SEQ_LENGTH = 4096
@@ -36,11 +36,11 @@ TEXT_ONLY      = True # Ornith is processor-wrapped VLM; unwrap so adapter keys 
 # Dataset Setting ==========================================
 
 DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/cpt"
-DATASET       = _args.dataset or "Ayush-ground-truth"
+DATASET       = args.dataset or "Ayush-ground-truth"
 DO_EVAL       = False   # CPT eval OOMs on 16GB VRAM (unsloth fp32 upcast); flip when fixed
 TRAIN_SET     = [f"{DATA_DIR}/{DATASET}/train.jsonl"]
-_valid_fp     = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
-VALID_SET     = [str(_valid_fp)] if (DO_EVAL and _valid_fp.is_file()) else []
+valid_fp      = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
+VALID_SET     = [str(valid_fp)] if (DO_EVAL and valid_fp.is_file()) else []
 
 # Output Setting ==========================================
 
@@ -61,24 +61,24 @@ LOG_FREQ      = 10
 
 # Hyperparameters =========================================
 
-EPOCHS        = _args.epochs or 3
+EPOCHS        = args.epochs or 3
 BATCH_SIZE    = 1
 GRAD_ACC      = 10
 
 OPTIMIZER     = "adamw_8bit"
 
-LEARNING_RATE = _args.lr or 5e-5
+LEARNING_RATE = args.lr or 5e-5
 EMBED_LR      = 0
 
 SCHEDULER     = "linear"
 WARMUP_STEPS  = 5
-MAX_STEPS     = _args.max_steps if _args.max_steps is not None else -1  # < 0 => train by epochs
+MAX_STEPS     = args.max_steps if args.max_steps is not None else -1  # < 0 => train by epochs
 WEIGHT_DECAY  = 1e-3
 
 SAVE_STEPS    = 50
 EVAL_STEPS    = 0.1
 
-LORA_RANK     = _args.rank or 128
+LORA_RANK     = args.rank or 128
 LORA_ALPHA    = 32
 LORA_DROPOUT  = 0
 TARGET_MODULE = ["q_proj", "k_proj", "v_proj",

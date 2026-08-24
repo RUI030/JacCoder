@@ -21,18 +21,19 @@ now = datetime.now()
 timestamp = now.strftime("%m-%d_%H-%M")
 
 # CLI overrides (any --flag beats the in-file default below) ===============
-_ap = argparse.ArgumentParser(add_help=False)
-_ap.add_argument("--ds", "--dataset", dest="dataset")
-_ap.add_argument("--task", "--task-type", dest="task")
-_ap.add_argument("--adapter", "--adapter-path", dest="adapter")
-_ap.add_argument("--epochs", type=int)
-_ap.add_argument("--lr", type=float)
-_ap.add_argument("--rank", type=int)
-_args, _ = _ap.parse_known_args()
+cli = argparse.ArgumentParser(add_help=False)
+cli.add_argument("--ds", "--dataset", dest="dataset")
+cli.add_argument("--task", "--task-type", dest="task")
+cli.add_argument("--adapter", "--adapter-path", dest="adapter")
+cli.add_argument("--epochs", type=int)
+cli.add_argument("--lr", type=float)
+cli.add_argument("--rank", type=int)
+cli.add_argument("--steps", dest="max_steps", type=int)
+args, _ = cli.parse_known_args()
 
 # Model Setting ===========================================
 
-ADAPTER_PATH   = _args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
+ADAPTER_PATH   = args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
 BASE_MODEL     = "ornith-ai/Ornith-1.5-9B"
 
 MAX_SEQ_LENGTH = 4096
@@ -44,8 +45,8 @@ CHAT_TEMPLATE  = "qwen-2.5"  # Ornith is Qwen3-based; qwen-2.5 template is compa
 # Dataset Setting ==========================================
 
 DATA_DIR   = f"{Path(__file__).resolve().parent}/../../dataset/sft"
-TASK_TYPE  = _args.task    or "code_completion"           # code_completion / js2jac / py2jac / code_gen / qa
-DATASET    = _args.dataset or "Nitin-10k-jac-functions"   # dataset folder under TASK_TYPE
+TASK_TYPE  = args.task    or "code_completion"           # code_completion / js2jac / py2jac / code_gen / qa
+DATASET    = args.dataset or "Nitin-10k-jac-functions"   # dataset folder under TASK_TYPE
 TRAIN_SET  = [f"{DATA_DIR}/{TASK_TYPE}/{DATASET}/train.jsonl"]
 VALID_SET  = [f"{DATA_DIR}/{TASK_TYPE}/{DATASET}/valid.jsonl"]
 
@@ -66,25 +67,25 @@ LOG_FREQ      = 10
 
 # Hyperparameters =========================================
 
-EPOCHS        = _args.epochs or 2
+EPOCHS        = args.epochs or 2
 BATCH_SIZE    = 1
 GRAD_ACC      = 10
 
 OPTIMIZER     = "adamw_8bit"
 
-LEARNING_RATE = _args.lr or 2e-4  # SFT LoRA standard, higher than CPT's 5e-5
+LEARNING_RATE = args.lr or 2e-4  # SFT LoRA standard, higher than CPT's 5e-5
 EMBED_LR      = 0     # not training embed/lm_head in SFT (see TARGET_MODULE)
 
 SCHEDULER     = "linear"
 WARMUP_STEPS  = 10
-MAX_STEPS     = -1
+MAX_STEPS     = args.max_steps if args.max_steps is not None else -1  # < 0 => train by epochs
 WEIGHT_DECAY  = 1e-3
 
 SAVE_STEPS    = 100
 EVAL_STRATEGY = "steps"
 EVAL_STEPS    = 0.1
 
-LORA_RANK     = _args.rank or 64    # SFT: lower than CPT's 128
+LORA_RANK     = args.rank or 64    # SFT: lower than CPT's 128
 LORA_ALPHA    = 16
 LORA_DROPOUT  = 0
 TARGET_MODULE = ["q_proj", "k_proj", "v_proj",
@@ -114,18 +115,23 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 
 tokenizer = get_chat_template(tokenizer, chat_template=CHAT_TEMPLATE)
 
-model = FastLanguageModel.get_peft_model(
-    model,
-    r                          = LORA_RANK,
-    target_modules             = TARGET_MODULE,
-    lora_alpha                 = LORA_ALPHA,
-    lora_dropout               = LORA_DROPOUT,
-    bias                       = BIAS,
-    use_gradient_checkpointing = GRAD_CHECKPT,
-    random_state               = RANDOM_SEED,
-    use_rslora                 = RSLORA,
-    loftq_config               = None,
-)
+# When ADAPTER_PATH is set, from_pretrained already returned a PEFT-wrapped
+# model — calling get_peft_model again would double-wrap and error. Shape
+# hyperparameters (rank / target_modules / alpha) are then frozen by the
+# checkpoint; to change them, merge first (see README).
+if not ADAPTER_PATH:
+    model = FastLanguageModel.get_peft_model(
+        model,
+        r                          = LORA_RANK,
+        target_modules             = TARGET_MODULE,
+        lora_alpha                 = LORA_ALPHA,
+        lora_dropout               = LORA_DROPOUT,
+        bias                       = BIAS,
+        use_gradient_checkpointing = GRAD_CHECKPT,
+        random_state               = RANDOM_SEED,
+        use_rslora                 = RSLORA,
+        loftq_config               = None,
+    )
 
 # Load Dataset ==============================================
 

@@ -1,14 +1,17 @@
-[ ] SFT coding ds 
-[V] 1. code completion
-[Review] 2. js2jac
-[ ] SFT eval
-    [ ] jac check
-    [ ] jac run
-    [ ] jac build
-    [ ] jac start (HTTP 200)
+- [ ] SFT coding ds 
+- [x] 1. code completion
+- [ ] Review 2. js2jac
+- [ ] SFT eval
+    - [ ] jac check
+    - [ ] jac run
+    - [ ] jac build
+    - [ ] jac start (HTTP 200)
 
-[V] peek_ds.ipynb (also statistic plots)
-[ ] plot_eval.ipynb
-[ ] SFT training pipeline
-[ ] markdown collecting and preproc
-[ ] slide: current situation, bottleneck, plan, resource required
+- [x] peek_ds.ipynb (also statistic plots)
+- [ ] plot_eval.ipynb
+- [ ] SFT training pipeline
+    - [x] build
+    - [ ] test
+    - [ ] check continue training works
+- [ ] markdown collecting and preproc
+- [ ] slide: current situation, bottleneck, plan, resource required
