@@ -142,13 +142,6 @@ Merged outputs are written under `script/merged/` with the adapter folder name.
 3. Point `script/inference.py` at a checkpoint and validate behavior.
 4. Run `script/merge_lora.py` when you need a merged export.
 
-## Known Rough Edges
-
-- Most scripts are configured by editing Python constants, not command-line flags.
-- Paths are not fully standardized yet across all scripts.
-- `docs/SCRIPT.md` is still incomplete.
-- Dataset tooling under `script/dataset/` is not implemented yet.
-
 ## Should You Add Bash Wrappers?
 
 Yes, for the stable workflows.

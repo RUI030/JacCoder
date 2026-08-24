@@ -1,5 +1,5 @@
 [ ] SFT coding ds 
-[ ] 1. code completion
+[V] 1. code completion
 [ ] 2. js2jac
 [ ] SFT eval
 [V] peek_ds.ipynb (also statistic plots)

@@ -72,6 +72,7 @@ def jac2code_completion(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
         "train": jac_files[valid_count:],
     }
 
+    raw_root = Path(f"{DS_ROOT}/raw/{DS_FORMAT}")
     out_dir.mkdir(parents=True, exist_ok=True)
     counts = {}
     for split, files in splits.items():
@@ -97,6 +98,7 @@ def jac2code_completion(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
                         "format": DS_FORMAT,
                         "class": classify(source),
                         "task_type": TASK_TYPE,
+                        "fp": file_path.relative_to(raw_root).as_posix(),
                     },
                 }
                 json.dump(record, out, ensure_ascii=False)

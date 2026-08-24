@@ -55,6 +55,7 @@ def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
         "train": jac_files[valid_count:],
     }
 
+    raw_root = Path(f"{DS_ROOT}/raw/{DS_FORMAT}")
     out_dir.mkdir(parents=True, exist_ok=True)
     for split, files in splits.items():
         output_file = Path(f"{out_dir}/{split}.jsonl")
@@ -67,6 +68,7 @@ def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
                         "source": SOURCE,
                         "format": "jac",
                         "class": classify(source),
+                        "fp": file_path.relative_to(raw_root).as_posix(),
                     },
                 }
                 json.dump(record, out, ensure_ascii=False)
