@@ -1,0 +1,242 @@
+[unsloth_zoo.log|WARNING]Loading output/adapter/08-24_21-30-sft-qa-opus-synth-v2/adapter as text-only; vision/audio towers skipped. Use FastVisionModel for multimodal inputs.
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+Adapter : output/adapter/08-24_21-30-sft-qa-opus-synth-v2/adapter
+Limit   : 0
+Metrics : ['check']
+Tasks   : ['code_completion', 'code_gen', 'py2jac', 'js2jac']
+
+Loading: output/adapter/08-24_21-30-sft-qa-opus-synth-v2/adapter
+==((====))==  Unsloth 2026.8.19: Fast Qwen3_5 patching. Transformers: 5.5.0.
+   \\   /|    NVIDIA GeForce RTX 5080. Num GPUs = 1. Max memory: 15.5 GB. Platform: Linux.
+O^O/ \_/ \    Torch: 2.11.0+cu130. CUDA: 12.0. CUDA Toolkit: 13.0. Triton: 3.6.0
+\        /    Bfloat16 = TRUE. FA [Xformers = None. FA2 = False]
+ "-____-"     Free license: http://github.com/unslothai/unsloth
+Unsloth: Fast downloading is enabled - ignore downloading bars which are red colored!
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 434.76it/s]
+The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/427 [00:00<?, ?it/s]Loading weights:   0%|          | 1/427 [00:00<00:55,  7.63it/s]Loading weights:   0%|          | 2/427 [00:00<00:57,  7.38it/s]Loading weights:   7%|▋         | 29/427 [00:00<00:03, 107.18it/s]Loading weights:  16%|█▌        | 68/427 [00:00<00:01, 206.46it/s]Loading weights:  27%|██▋       | 115/427 [00:00<00:01, 291.23it/s]Loading weights:  36%|███▌      | 153/427 [00:00<00:00, 312.57it/s]Loading weights:  47%|████▋     | 201/427 [00:00<00:00, 357.07it/s]Loading weights:  56%|█████▋    | 241/427 [00:00<00:00, 364.09it/s]Loading weights:  67%|██████▋   | 288/427 [00:00<00:00, 393.46it/s]Loading weights:  77%|███████▋  | 330/427 [00:01<00:00, 399.51it/s]Loading weights:  87%|████████▋ | 371/427 [00:01<00:00, 387.43it/s]Loading weights:  97%|█████████▋| 414/427 [00:01<00:00, 399.33it/s]Loading weights: 100%|██████████| 427/427 [00:01<00:00, 318.23it/s]
+
+============================
+ INFER  code_completion / Nitin-10k-jac-functions
+============================
+  20 records
+  40 records
+  60 records
+  80 records
+  100 records
+  120 records
+  140 records
+  160 records
+  180 records
+  200 records
+  220 records
+  240 records
+  260 records
+  280 records
+  300 records
+  320 records
+  340 records
+  360 records
+  380 records
+  400 records
+  420 records
+  440 records
+  460 records
+  480 records
+  500 records
+  520 records
+  540 records
+  560 records
+  580 records
+  600 records
+  620 records
+  640 records
+  660 records
+  680 records
+  700 records
+  720 records
+  740 records
+  760 records
+  780 records
+  800 records
+  820 records
+  840 records
+  860 records
+  880 records
+  900 records
+  920 records
+  940 records
+  960 records
+  980 records
+  1000 records
+  1020 records
+  1040 records
+  1060 records
+  1080 records
+  1100 records
+  1120 records
+  1140 records
+  1160 records
+  1180 records
+  1200 records
+  1220 records
+  1240 records
+  1260 records
+  1280 records
+  1300 records
+  1320 records
+  1340 records
+  1360 records
+  1380 records
+  1400 records
+  1420 records
+  1440 records
+  1460 records
+  1480 records
+  1500 records
+  1520 records
+Wrote 1523 predictions to /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/code_completion/Nitin-10k-jac-functions/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/predictions.jsonl
+
+============================
+ GATE   code_completion / Nitin-10k-jac-functions
+============================
+n=1523  has_block=1514/1523  check_pass=1348/1523
+  function        n=1523  block=1514  check=1348 (88.5%)
+Report: /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/code_completion/Nitin-10k-jac-functions/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
+
+============================
+ INFER  code_gen / opus-synth-v2
+============================
+  20 records
+  40 records
+  60 records
+  80 records
+  100 records
+  120 records
+  140 records
+  160 records
+  180 records
+  200 records
+  220 records
+  240 records
+  260 records
+  280 records
+  300 records
+  320 records
+  340 records
+  360 records
+  380 records
+  400 records
+  420 records
+  440 records
+  460 records
+Wrote 460 predictions to /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/code_gen/opus-synth-v2/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/predictions.jsonl
+
+============================
+ GATE   code_gen / opus-synth-v2
+============================
+n=460  has_block=407/460  check_pass=251/460
+  fullstack       n=  76  block=  64  check=  29 (38.2%)
+  function        n= 166  block= 149  check= 105 (63.3%)
+  graph           n=  88  block=  76  check=  50 (56.8%)
+  osp             n= 130  block= 118  check=  67 (51.5%)
+Report: /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/code_gen/opus-synth-v2/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
+
+============================
+ INFER  py2jac / opus-synth-v2
+============================
+  20 records
+  40 records
+  60 records
+  80 records
+  100 records
+  120 records
+  140 records
+  160 records
+  180 records
+  200 records
+  220 records
+  240 records
+  260 records
+  280 records
+  300 records
+  320 records
+  340 records
+  360 records
+  380 records
+Wrote 388 predictions to /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/py2jac/opus-synth-v2/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/predictions.jsonl
+
+============================
+ GATE   py2jac / opus-synth-v2
+============================
+n=388  has_block=388/388  check_pass=296/388
+  function        n= 328  block= 328  check= 271 (82.6%)
+  osp             n=  60  block=  60  check=  25 (41.7%)
+Report: /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/py2jac/opus-synth-v2/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
+
+============================
+ INFER  js2jac / Nitin-js2jac
+============================
+  20 records
+  40 records
+  60 records
+  80 records
+  100 records
+  120 records
+  140 records
+  160 records
+  180 records
+  200 records
+  220 records
+  240 records
+  260 records
+  280 records
+  300 records
+  320 records
+  340 records
+  360 records
+  380 records
+  400 records
+  420 records
+  440 records
+  460 records
+  480 records
+  500 records
+  520 records
+  540 records
+  560 records
+  580 records
+  600 records
+  620 records
+  640 records
+  660 records
+  680 records
+  700 records
+  720 records
+  740 records
+  760 records
+  780 records
+  800 records
+  820 records
+  840 records
+  860 records
+  880 records
+  900 records
+  920 records
+Wrote 923 predictions to /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/js2jac/Nitin-js2jac/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/predictions.jsonl
+
+============================
+ GATE   js2jac / Nitin-js2jac
+============================
+n=923  has_block=910/923  check_pass=445/923
+  function        n= 754  block= 741  check= 398 (52.8%)
+  fullstack       n= 168  block= 168  check=  46 (27.4%)
+  osp             n=   1  block=   1  check=   1 (100.0%)
+Report: /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/js2jac/Nitin-js2jac/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
+
+Reports:
+  /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/code_completion/Nitin-10k-jac-functions/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
+  /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/code_gen/opus-synth-v2/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
+  /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/py2jac/opus-synth-v2/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
+  /home/imrui/Documents/Jaseci/JacLLM/JacCoder/output/eval/js2jac/Nitin-js2jac/08-24_21-30-sft-qa-opus-synth-v2_08-24_22-48/report.json
