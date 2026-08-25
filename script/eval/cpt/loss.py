@@ -23,6 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 # CLI overrides ============================================
 cli = argparse.ArgumentParser(add_help=False)
 cli.add_argument("--run",   dest="run",     help="training run dir (contains checkpoint-*/adapter/)")
+cli.add_argument("--base",  dest="base",    action="store_true", help="eval base model (no adapter); mutex with --run")
 cli.add_argument("--ds", "--dataset", dest="dataset")
 cli.add_argument("--valid", dest="valid",   help="explicit valid.jsonl path")
 cli.add_argument("--limit", type=int)
@@ -32,8 +33,10 @@ if args.dataset: DATASET  = args.dataset
 if args.valid:   VALID_FP = args.valid
 if args.limit:   LIMIT    = args.limit
 
-if not RUN_DIR:
-    raise SystemExit("Provide --run or set RUN_DIR at top of file")
+if args.base and args.run:
+    raise SystemExit("--base and --run are mutually exclusive")
+if not args.base and not RUN_DIR:
+    raise SystemExit("Provide --run <path> or --base")
 if not VALID_FP:
     VALID_FP = str(PROJECT_ROOT / "dataset" / "cpt" / DATASET / "valid.jsonl")
 
@@ -89,19 +92,25 @@ if __name__ == "__main__":
     print(f"Valid: {VALID_FP}")
     print(f"Records: {len(records)}")
 
-    checkpoints = find_checkpoints(RUN_DIR)
-    if not checkpoints:
-        raise SystemExit(f"No checkpoints in {RUN_DIR}")
-    print(f"Checkpoints: {len(checkpoints)}")
+    if args.base:
+        checkpoints = [Path(BASE_MODEL)]  # sentinel; loaded as base
+        print(f"Eval target: base model ({BASE_MODEL})")
+    else:
+        checkpoints = find_checkpoints(RUN_DIR)
+        if not checkpoints:
+            raise SystemExit(f"No checkpoints in {RUN_DIR}")
+        print(f"Checkpoints: {len(checkpoints)}")
 
     results = []
     for ckpt in checkpoints:
-        print(f"\n=== {ckpt.name} ===")
+        label = "base" if args.base else ckpt.name
+        print(f"\n=== {label} ===")
         # Let unsloth load base+adapter (matches training path, no key mismatch).
         # Force device_map to keep everything on the primary GPU (default map
         # spills to CPU which bnb 4-bit rejects).
         model, tokenizer = load_model(
-            str(ckpt), MAX_SEQ_LENGTH, LOAD_IN_4BIT,
+            BASE_MODEL if args.base else str(ckpt),
+            MAX_SEQ_LENGTH, LOAD_IN_4BIT,
             device_map={"": "cuda:0"},
         )
         model.eval()
@@ -109,8 +118,8 @@ if __name__ == "__main__":
         m = mean(losses) if losses else float("nan")
         print(f"  mean_loss = {m:.4f}  (n={len(losses)})")
         results.append({
-            "checkpoint": ckpt.name,
-            "path": str(ckpt),
+            "checkpoint": label,
+            "path": BASE_MODEL if args.base else str(ckpt),
             "n": len(losses),
             "mean_loss": m,
         })
@@ -119,12 +128,12 @@ if __name__ == "__main__":
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
 
-    run_name = Path(RUN_DIR).name
+    run_name = f"base-{DATASET}" if args.base else Path(RUN_DIR).name
     out_dir  = PROJECT_ROOT / "output" / "eval" / "cpt" / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / "loss.json"
+    out_path = out_dir / f"loss-{DATASET}.json"
     out_path.write_text(json.dumps({
-        "run_dir":    RUN_DIR,
+        "run_dir":    RUN_DIR or None,
         "valid_fp":   VALID_FP,
         "base_model": BASE_MODEL,
         "results":    results,

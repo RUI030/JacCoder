@@ -51,8 +51,10 @@ CHAT_TEMPLATE  = "qwen-2.5"  # Ornith is Qwen3-based; qwen-2.5 template is compa
 DATA_DIR   = f"{Path(__file__).resolve().parent}/../../dataset/sft"
 TASK_TYPE  = args.task    or "code_completion"           # code_completion / js2jac / py2jac / code_gen / qa
 DATASET    = args.dataset or "Nitin-10k-jac-functions"   # dataset folder under TASK_TYPE
+DO_EVAL    = False   # SFT eval OOMs on 16GB VRAM (accelerate fp32 upcast); use loss.py + gate.py post-hoc
 TRAIN_SET  = [f"{DATA_DIR}/{TASK_TYPE}/{DATASET}/train.jsonl"]
-VALID_SET  = [f"{DATA_DIR}/{TASK_TYPE}/{DATASET}/valid.jsonl"]
+valid_fp  = Path(f"{DATA_DIR}/{TASK_TYPE}/{DATASET}/valid.jsonl")
+VALID_SET  = [str(valid_fp)] if (DO_EVAL and valid_fp.is_file()) else []
 
 # Output Setting ==========================================
 
@@ -72,7 +74,7 @@ LOG_FREQ      = 10
 
 # Hyperparameters =========================================
 
-EPOCHS        = args.epochs or 2
+EPOCHS        = args.epochs or 1
 BATCH_SIZE    = 1
 GRAD_ACC      = 10
 

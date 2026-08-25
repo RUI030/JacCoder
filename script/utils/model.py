@@ -77,6 +77,7 @@ def generate(
 
     args = {
         "max_new_tokens": max_new_tokens,
+        "max_length": None,   # silence HF "both set" warning; max_new_tokens is what we want
         "use_cache": True,
         "repetition_penalty": repetition_penalty,
         "pad_token_id": tokenizer.pad_token_id or tokenizer.eos_token_id,
