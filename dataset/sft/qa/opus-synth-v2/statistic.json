@@ -1,42 +1,43 @@
 {
     "train": {
-        "count": 6099,
+        "count": 4292,
         "length": {
             "unit": "characters",
-            "avg": 726.66,
-            "median": 633,
-            "std": 370.95,
-            "min": 223,
-            "max": 7534
+            "avg": 1400.96,
+            "median": 718.0,
+            "std": 2754.57,
+            "min": 104,
+            "max": 79323
         },
         "histogram": {
             "<=100": 0,
-            "101-200": 0,
-            "201-500": 1584,
-            "501-1000": 3577,
-            "1001-2000": 867,
-            "2001-5000": 69,
-            "5001-10000": 2,
-            ">10000": 0
+            "101-200": 81,
+            "201-500": 1202,
+            "501-1000": 1517,
+            "1001-2000": 831,
+            "2001-5000": 471,
+            "5001-10000": 145,
+            ">10000": 45
         },
         "property": {
             "format": {
                 "diff": 0,
-                "jac": 6099,
+                "jac": 4292,
                 "markdown": 0,
                 "repo": 0,
                 "session": 0
             },
             "class": {
                 "fullstack": 0,
-                "function": 6099,
+                "function": 0,
                 "graph": 0,
-                "osp": 0
+                "osp": 0,
+                "unknown": 4292
             },
             "source": {
-                "agent": 0,
+                "agent": 4292,
                 "article": 0,
-                "code": 6099,
+                "code": 0,
                 "docs": 0,
                 "other": 0
             }
@@ -44,50 +45,51 @@
         "combinations": [
             {
                 "format": "jac",
-                "class": "function",
-                "source": "code",
-                "count": 6099
+                "class": "unknown",
+                "source": "agent",
+                "count": 4292
             }
         ]
     },
     "valid": {
-        "count": 1523,
+        "count": 1072,
         "length": {
             "unit": "characters",
-            "avg": 727.58,
-            "median": 620,
-            "std": 384.2,
-            "min": 183,
-            "max": 4618
+            "avg": 1402.21,
+            "median": 724.5,
+            "std": 2607.12,
+            "min": 114,
+            "max": 41147
         },
         "histogram": {
             "<=100": 0,
-            "101-200": 1,
-            "201-500": 423,
-            "501-1000": 867,
-            "1001-2000": 205,
-            "2001-5000": 27,
-            "5001-10000": 0,
-            ">10000": 0
+            "101-200": 26,
+            "201-500": 285,
+            "501-1000": 396,
+            "1001-2000": 214,
+            "2001-5000": 101,
+            "5001-10000": 37,
+            ">10000": 13
         },
         "property": {
             "format": {
                 "diff": 0,
-                "jac": 1523,
+                "jac": 1072,
                 "markdown": 0,
                 "repo": 0,
                 "session": 0
             },
             "class": {
                 "fullstack": 0,
-                "function": 1523,
+                "function": 0,
                 "graph": 0,
-                "osp": 0
+                "osp": 0,
+                "unknown": 1072
             },
             "source": {
-                "agent": 0,
+                "agent": 1072,
                 "article": 0,
-                "code": 1523,
+                "code": 0,
                 "docs": 0,
                 "other": 0
             }
@@ -95,9 +97,9 @@
         "combinations": [
             {
                 "format": "jac",
-                "class": "function",
-                "source": "code",
-                "count": 1523
+                "class": "unknown",
+                "source": "agent",
+                "count": 1072
             }
         ]
     }

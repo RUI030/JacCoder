@@ -1,0 +1,150 @@
+{
+    "train": {
+        "count": 544,
+        "length": {
+            "unit": "characters",
+            "avg": 16226.51,
+            "median": 16614.0,
+            "std": 2426.7,
+            "min": 1146,
+            "max": 21176
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 0,
+            "1001-2000": 3,
+            "2001-5000": 5,
+            "5001-10000": 7,
+            ">10000": 529
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 0,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0,
+                "unknown": 544
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 0,
+                "graph": 0,
+                "osp": 0,
+                "unknown": 544
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "blogs": 14,
+                "code": 0,
+                "docs": 469,
+                "osp_paper": 9,
+                "other": 0,
+                "rehearsal": 52
+            }
+        },
+        "combinations": [
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "blogs",
+                "count": 14
+            },
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "docs",
+                "count": 469
+            },
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "osp_paper",
+                "count": 9
+            },
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "rehearsal",
+                "count": 52
+            }
+        ]
+    },
+    "valid": {
+        "count": 102,
+        "length": {
+            "unit": "characters",
+            "avg": 16260.83,
+            "median": 16305.5,
+            "std": 1867.5,
+            "min": 7698,
+            "max": 22568
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 0,
+            "1001-2000": 0,
+            "2001-5000": 0,
+            "5001-10000": 2,
+            ">10000": 100
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 0,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0,
+                "unknown": 102
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 0,
+                "graph": 0,
+                "osp": 0,
+                "unknown": 102
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "blogs": 3,
+                "code": 0,
+                "docs": 84,
+                "osp_paper": 3,
+                "other": 0,
+                "rehearsal": 12
+            }
+        },
+        "combinations": [
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "blogs",
+                "count": 3
+            },
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "docs",
+                "count": 84
+            },
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "osp_paper",
+                "count": 3
+            },
+            {
+                "format": "unknown",
+                "class": "unknown",
+                "source": "rehearsal",
+                "count": 12
+            }
+        ]
+    }
+}
