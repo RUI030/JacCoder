@@ -30,9 +30,11 @@ JacCoder/
 │   │   ├── cpt.py        # CPT training entrypoint
 │   │   └── sft.py        # reserved for SFT, not implemented yet
 │   ├── dataset/
-│   │   ├── ds4cpt.py     # reserved for dataset prep, not implemented yet
-│   │   ├── statistics.py # reserved for dataset stats, not implemented yet
-│   │   └── parser/
+│   │   ├── cpt/          # raw → CPT split builders (e.g. singlefile.py)
+│   │   ├── sft/          # raw → SFT split builders (js2jac.py, qa.py, code_complete.py)
+│   │   ├── parser/       # chunking / AST helpers for raw sources
+│   │   ├── template/     # prompt_template.json, ds_report.json
+│   │   └── statistics.py # dataset stats
 │   ├── inference.py      # local chat/inference
 │   └── merge_lora.py     # merge LoRA adapter into a standalone model
 ├── output/               # training outputs and checkpoints

@@ -1,7 +1,7 @@
 import json, random, sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from utils.io import json2parquet
 from utils.jac_block import first_jac_block
 from utils.classifier import classify_structural as classify
@@ -11,7 +11,7 @@ DS_FORMAT = "jac"
 DS_NAME   = "opus-synth-v2"
 SOURCE    = "agent"
 
-DS_ROOT = f"{Path(__file__).resolve().parent}/../../dataset"
+DS_ROOT = f"{Path(__file__).resolve().parent}/../../../dataset"
 IN_FILE = f"{DS_ROOT}/raw/agent-synth/sft_train.jsonl"
 
 OUT_FORMAT = "jsonl"

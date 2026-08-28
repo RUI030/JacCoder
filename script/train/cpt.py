@@ -43,8 +43,8 @@ DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/cpt"
 DATASET       = args.dataset or "Ayush-ground-truth"
 DO_EVAL       = False   # CPT eval OOMs on 16GB VRAM (unsloth fp32 upcast); flip when fixed
 TRAIN_SET     = [f"{DATA_DIR}/{DATASET}/train.jsonl"]
-valid_fp      = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
-VALID_SET     = [str(valid_fp)] if (DO_EVAL and valid_fp.is_file()) else []
+VALID_FP      = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
+VALID_SET     = [str(VALID_FP)] if (DO_EVAL and VALID_FP.is_file()) else []
 
 # Output Setting ==========================================
 
@@ -61,8 +61,9 @@ HF_TOKEN      = ""
 TRAIN_LOG     = ""
 REPORT_TO     = ["tensorboard"] # "none", "wandb"
 TENSORBRD_DIR = f"{OUT_DIR}/runs" # folder path, empty to disable
-Path(TENSORBRD_DIR).mkdir(parents=True, exist_ok=True)  # eager create, avoid TB async writer race
 LOG_FREQ      = 10
+
+Path(TENSORBRD_DIR).mkdir(parents=True, exist_ok=True)  # eager create, avoid TB async writer race
 
 # Hyperparameters =========================================
 

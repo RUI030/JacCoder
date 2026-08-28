@@ -1,7 +1,7 @@
 import json, random, sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from utils.io import iter_sources, json2parquet
 from utils.classifier import classify_structural as classify
 
@@ -13,12 +13,14 @@ TASK_TYPE    = "js2jac"
 JSON_KEYWORD = "jac"  # JSONL mode: field holding the Jac target
 FP_KEY       = "id"   # JSONL mode: field to use as sample id (fp)
 JS_KEY       = "js"   # JSONL mode: field holding the JS/TS source
+STATUS_KEY   = "status_in"     # JSONL mode: field indicating record validity
+STATUS_OK    = "convertible"   # keep only records whose STATUS_KEY equals this
 
-DS_ROOT = f"{Path(__file__).resolve().parent}/../../dataset"
+DS_ROOT = f"{Path(__file__).resolve().parent}/../../../dataset"
 IN_DIR  = f"{DS_ROOT}/raw/{DS_FORMAT}/{DS_NAME}"
 OUT_DIR = f"{DS_ROOT}/sft/{TASK_TYPE}/{DS_NAME}"
 
-PROMPT     = f"{Path(__file__).resolve().parent}/template/prompt_template.json"
+PROMPT     = f"{Path(__file__).resolve().parent}/../template/prompt_template.json"
 OUT_FORMAT = "jsonl"
 VALID_SIZE = 0.2
 SEED       = 3407
@@ -40,7 +42,9 @@ def jsonl2js2jac(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
 
     raw_root = Path(f"{DS_ROOT}/raw/{DS_FORMAT}")
     samples: list[tuple[str, str, str]] = []  # (fp, js, jac)
-    for fp, jac, extras in iter_sources(in_dir, raw_root, JSON_KEYWORD, FP_KEY, (JS_KEY,)):
+    for fp, jac, extras in iter_sources(in_dir, raw_root, JSON_KEYWORD, FP_KEY, (JS_KEY, STATUS_KEY)):
+        if extras.get(STATUS_KEY) != STATUS_OK:
+            continue
         js = (extras.get(JS_KEY) or "").strip()
         jac = jac.strip()
         if not js or not jac:

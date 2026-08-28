@@ -1,7 +1,7 @@
 import json, random, sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 from utils.io import iter_sources, json2parquet
 from utils.classifier import classify_structural as classify
 
@@ -12,11 +12,11 @@ SOURCE       = "code"  # "code", "docs", "article", "agent", "other"
 JSON_KEYWORD = "jac"   # JSONL mode: field holding the Jac source
 FP_KEY       = "id"    # JSONL mode: field to use as sample id (fp)
 
-DS_ROOT = f"{Path(__file__).resolve().parent}/../../dataset"
+DS_ROOT = f"{Path(__file__).resolve().parent}/../../../dataset"
 IN_DIR  = f"{DS_ROOT}/raw/{DS_FORMAT}/{DS_NAME}"
 OUT_DIR = f"{DS_ROOT}/cpt/{DS_NAME}"
 
-PROMPT     = f"{Path(__file__).resolve().parent}/template/prompt_template.json"
+PROMPT     = f"{Path(__file__).resolve().parent}/../template/prompt_template.json"
 OUT_FORMAT = "jsonl"  # or "parquet"
 VALID_SIZE = 0.2
 SEED       = 3407
