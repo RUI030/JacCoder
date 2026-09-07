@@ -9,11 +9,16 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+_HERE = Path(__file__).resolve().parent          # script/eval/
+sys.path.append(str(_HERE.parent))                # script/  → for `utils.*`
+sys.path.append(str(_HERE))                       # script/eval/  → for `gate`, `infer.adapter`
+
 from utils.model import load_model
 
-from infer import generate_predictions, MAX_SEQ_LENGTH, LOAD_IN_4BIT, BASE_MODEL
-from gate  import evaluate as gate_evaluate
+from infer.adapter import (
+    generate_predictions, MAX_SEQ_LENGTH, LOAD_IN_4BIT, BASE_MODEL,
+)
+from gate import evaluate as gate_evaluate
 
 # Setting =================================================
 ADAPTER_PATH = ""   # empty => base model only
@@ -25,6 +30,7 @@ EVAL_SET = [
     ("code_gen",        "opus-synth-v2"),
     ("py2jac",          "opus-synth-v2"),
     ("js2jac",          "Nitin-js2jac"),
+    ("osp",             "Nitin-1k-osp"),
 ]
 
 SPLIT = "valid"
@@ -35,12 +41,16 @@ cli = argparse.ArgumentParser(add_help=False)
 cli.add_argument("--adapter", dest="adapter")
 cli.add_argument("--limit",   dest="limit",   type=int)
 cli.add_argument("--checks",  dest="checks",  help="comma list, e.g. check,run")
+cli.add_argument("--tasks",   dest="tasks",   help="comma list of task names to keep, e.g. osp,code_gen")
 args, _ = cli.parse_known_args()
 if args.adapter is not None: ADAPTER_PATH = args.adapter
 if args.limit   is not None: LIMIT        = args.limit
 if args.checks:              METRICS      = [c.strip() for c in args.checks.split(",") if c.strip()]
+if args.tasks:
+    keep = {t.strip() for t in args.tasks.split(",") if t.strip()}
+    EVAL_SET = [(t, d) for (t, d) in EVAL_SET if t in keep]
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 TAG   = Path(ADAPTER_PATH).parent.name if ADAPTER_PATH else BASE_MODEL.replace("/", "_")
 STAMP = datetime.now().strftime("%m-%d_%H-%M")
 

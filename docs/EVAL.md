@@ -21,25 +21,36 @@ Adapted from Jac-Model-Studio's EVAL.md taxonomy (`../Jac-Model-Studio/EVAL.md`)
 
 ## Scripts
 
-| Script | Purpose | Use when |
-|---|---|---|
-| `script/eval/cpt/loss.py` | Forward NLL per CPT checkpoint on a valid split | CPT: verify loss actually dropped, spot per-checkpoint plateaus |
-| `script/eval/sft/infer.py` | Generate predictions.jsonl from an SFT adapter + valid split | SFT: manual single-task inference |
-| `script/eval/sft/gate.py` | Score predictions.jsonl: output shape + jac gates | SFT: turn predictions into pass-rate + per-class + per-sample diagnostic |
-| `script/eval/sft/eval_batch.py` | Load model once, run infer+gate across a list of (task, ds) pairs | SFT: comparing one adapter across multiple tasks (~8× faster than a bash loop) |
+See `script/eval/README.md` for a decision tree ("I want X → run Y"). Layout:
+
+```
+script/eval/
+  gate.py                    # scorer (shared)
+  batch.py                   # multi-task runner (loads model once)
+  infer/                     # producers of predictions.jsonl, one per backend
+    adapter.py               # local HF/unsloth adapter
+    openrouter.py            # any OpenRouter-hosted model
+  compare/                   # post-hoc analysis of report.json / predictions.jsonl
+    confmat.py               # per-sample confusion matrix
+    taxonomy.py              # failure clustering by check_err
+  probe/                     # intrinsic model analysis (no dataset scoring)
+    svd_energy.py            # LoRA rank sizing
+    cpt_loss.py              # forward NLL per CPT checkpoint
+    adapter_viewer.ipynb     # interactive companion to svd_energy
+```
 
 ## Typical flows
 
 ### CPT progress check
 ```bash
-python script/eval/cpt/loss.py --run output/adapter/<cpt-run> --ds Nitin-10k-jac-functions
-python script/eval/cpt/loss.py --base --ds Nitin-10k-jac-functions   # baseline reference
+python script/eval/probe/cpt_loss.py --run output/adapter/<cpt-run> --ds Nitin-10k-jac-functions
+python script/eval/probe/cpt_loss.py --base --ds Nitin-10k-jac-functions   # baseline reference
 ```
 Writes `output/eval/cpt/<run>/loss-<ds>.json`. Compare `results[].mean_loss` across checkpoints.
 
 ### SFT single-adapter multi-task (recommended)
 ```bash
-python script/eval/sft/eval_batch.py \
+python script/eval/batch.py \
   --adapter output/adapter/<sft-run>/adapter \
   --limit 0                             # 0 = all valid records; use 100-500 for iteration
 ```
@@ -47,19 +58,57 @@ Runs infer + gate across all 4 tasks defined in `EVAL_SET` inside the script. Re
 
 ### SFT one-off (manual)
 ```bash
-python script/eval/sft/infer.py --task code_gen --ds opus-synth-v2 \
+python script/eval/infer/adapter.py --task code_gen --ds opus-synth-v2 \
   --adapter output/adapter/<sft-run>/adapter --limit 100
-python script/eval/sft/gate.py --pred output/eval/code_gen/opus-synth-v2/<tag>/predictions.jsonl
+python script/eval/gate.py --pred output/eval/code_gen/opus-synth-v2/<tag>/predictions.jsonl
 ```
 
 ### Cross-adapter comparison
-`eval_batch.py` can only load one model. For sweeping adapters, wrap it:
+`batch.py` can only load one model. For sweeping adapters, wrap it:
 ```bash
 for a in output/adapter/*-sft-*/adapter; do
-  python script/eval/sft/eval_batch.py --adapter "$a" --limit 300
+  python script/eval/batch.py --adapter "$a" --limit 300
 done
 ```
 Each iteration pays the ~2 min model-load cost.
+
+### OpenRouter (any hosted model)
+Evaluate a hosted API model against the same tasks/splits, so `gate.py` and
+`confmat.py` compare it directly to a local adapter.
+
+```bash
+export OPENROUTER_API_KEY=sk-or-...
+
+python script/eval/infer/openrouter.py \
+    --model anthropic/claude-3.5-sonnet \
+    --task osp --ds Nitin-1k-osp \
+    --limit 0 --workers 8
+
+python script/eval/gate.py \
+    --pred output/eval/osp/Nitin-1k-osp/anthropic_claude-3.5-sonnet_<stamp>/predictions.jsonl
+```
+
+Output lands at `output/eval/<task>/<ds>/<model-slug>_<stamp>/`, same shape as
+adapter runs — so a confusion matrix works as-is:
+
+```bash
+python script/eval/compare/confmat.py \
+    --a output/eval/osp/Nitin-1k-osp/<v1.1-adapter>_<stamp>/report.json \
+    --b output/eval/osp/Nitin-1k-osp/anthropic_claude-3.5-sonnet_<stamp>/report.json \
+    --label-a v1.1 --label-b sonnet
+```
+
+Failed API calls (post-retry) land in `prediction` as `"__ERROR__ …"` — gate
+counts them as `no_output`. Grep the string to isolate infra failures from
+model failures.
+
+### LoRA rank sizing
+```bash
+python script/eval/probe/svd_energy.py --adapter output/adapter/<run>/adapter
+```
+Reports median/p90 of the smallest rank capturing 50/80/90/95/99% of the
+adapter's ΔW = B@A energy, per module and overall. A median 80%-energy rank
+well below `r_max` is evidence the training rank is oversized for the task.
 
 ## Output shape
 
@@ -108,18 +157,13 @@ Each iteration pays the ~2 min model-load cost.
 jq '.samples[] | select(.check_ok==false) | {id, class, err: .check_err[:200]}' report.json | less
 ```
 
-## Known baseline numbers (Ornith-1.5-9B SFT stack, 2026-08-25)
+## Baseline results
 
-Weighted overall: **71.0%** (2340 / 3294 records) — comparable to Jac-Model-Studio's SFT +25pt baseline of 72.6% on their 855-row holdout.
+Frozen per-adapter numbers live under `output/eval/`, not in this doc. See:
 
-| Task | Records | Pass rate | Weakest class |
-|---|---|---|---|
-| code_completion | 1523 | 88.5% | (function only) |
-| py2jac | 388 | 76.3% | osp 41.7% |
-| code_gen | 460 | 54.6% | fullstack 38.2% |
-| js2jac | 923 | 48.2% | fullstack 27.4% |
+- `output/eval/report-v1-baseline.md` — v1 SFT stack (2026-08-25).
 
-Adapter: `output/adapter/08-24_21-30-sft-qa-opus-synth-v2/adapter` (final SFT after code_completion → js2jac → py2jac → code_gen → qa stack).
+Add a new `report-<tag>.md` there whenever an eval milestone is worth recording, rather than editing this manual.
 
 ## Reference: Jac-Model-Studio comparison
 

@@ -2,7 +2,7 @@ import argparse, json, sys
 from collections import defaultdict
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from utils.jac_block import first_jac_block, classify_output
 from utils.jac_cli import check as jac_check, run as jac_run
 
