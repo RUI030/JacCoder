@@ -10,13 +10,74 @@ flags. Recipes exist for the multi-dataset case.
 
 ## Running
 
+Activate the project environment before running a recipe. This also ensures
+that notebook kernels, Unsloth, TRL, Transformers, and TensorBoard use the
+versions installed for this project rather than packages from the base Python
+environment.
+
 ```bash
-python script/train/train.py --recipe script/train/recipe/base_sft_v1.yaml
-python script/train/train.py --recipe recipe.py --adapter path/to/prev
+mamba activate <ENV_NAME>
+which python
+
+python script/train/train.py \
+  --recipe script/train/recipe/<RECIPE_NAME>.yaml
+```
+
+To keep a copy of the terminal output:
+
+```bash
+python script/train/train.py \
+  --recipe script/train/recipe/<RECIPE_NAME>.yaml \
+  2>&1 | tee <RECIPE_NAME>.log
+```
+
+When debugging an environment mismatch, check the active interpreter and
+relevant package versions before changing project dependencies:
+
+```bash
+which python
+
+python -c '
+from importlib.metadata import version
+for package in ["unsloth", "transformers", "trl", "tensorboard", "tensorboardX"]:
+    try:
+        print(package, version(package))
+    except Exception as error:
+        print(package, "MISSING", error)
+'
 ```
 
 `--adapter` overrides `recipe.adapter`, `--resume` overrides
 `recipe.resume_from`. They're mutually exclusive with each other.
+
+### Resume an interrupted run
+
+Training writes a Trainer checkpoint every `hyperparams.save_steps`. These
+checkpoints include adapter weights, optimizer and scheduler state, RNG state,
+and the current step. The final `adapter/` directory contains model weights
+for inference or a fresh training stage; it is not a resumable Trainer
+checkpoint.
+
+List the checkpoints for a run:
+
+```bash
+find <RUN_DIR> -maxdepth 1 -type d -name 'checkpoint-*' | sort -V
+```
+
+Resume from one of them:
+
+```bash
+mamba activate <ENV_NAME>
+
+python script/train/train.py \
+  --recipe script/train/recipe/<RECIPE_NAME>.yaml \
+  --resume <RUN_DIR>/checkpoint-<CHECKPOINT_STEP>
+```
+
+Use `--adapter <ADAPTER_DIR>` instead when intentionally starting a new stage
+with fresh optimizer and scheduler state. Merge the old adapter into a new
+base model first if the new stage needs different LoRA shape parameters such
+as rank or target modules.
 
 ## Format
 
