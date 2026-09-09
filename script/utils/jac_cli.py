@@ -10,19 +10,6 @@ START_BOOT      = 5
 HTTP_TIMEOUT    = 10
 
 
-def _run(args, timeout=DEFAULT_TIMEOUT, cwd=None) -> tuple[bool, str]:
-    """Return (ok, stderr_or_stdout). ok is True iff exit code 0."""
-    try:
-        proc = subprocess.run(
-            [JAC, *args],
-            capture_output=True, text=True,
-            timeout=timeout, cwd=cwd,
-        )
-        return proc.returncode == 0, (proc.stderr or proc.stdout).strip()
-    except subprocess.TimeoutExpired:
-        return False, "timeout"
-
-
 @contextmanager
 def jac_tempfile(source: str):
     """Write source to a temporary .jac file; unlink on exit."""
@@ -37,25 +24,39 @@ def jac_tempfile(source: str):
         path.unlink(missing_ok=True)
 
 
-def check(source: str, timeout=DEFAULT_TIMEOUT) -> tuple[bool, str]:
+def invoke(args, timeout: int = DEFAULT_TIMEOUT, cwd: str | None = None) -> tuple[bool, str]:
+    """Run `jac <args>`; return (ok, stderr_or_stdout). ok iff exit code 0."""
+    try:
+        proc = subprocess.run(
+            [JAC, *args],
+            capture_output=True, text=True,
+            timeout=timeout, cwd=cwd,
+        )
+        return proc.returncode == 0, (proc.stderr or proc.stdout).strip()
+    except subprocess.TimeoutExpired:
+        return False, "timeout"
+
+
+def check(source: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, str]:
     """Static type check via `jac check`."""
     with jac_tempfile(source) as p:
-        return _run(["check", str(p)], timeout)
+        return invoke(["check", str(p)], timeout)
 
 
-def run(source: str, timeout=DEFAULT_TIMEOUT) -> tuple[bool, str]:
+def run(source: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, str]:
     """Execute via `jac run`."""
     with jac_tempfile(source) as p:
-        return _run(["run", str(p)], timeout)
+        return invoke(["run", str(p)], timeout)
 
 
-def build(source: str, timeout=DEFAULT_TIMEOUT) -> tuple[bool, str]:
+def build(source: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, str]:
     """Compile via `jac build`."""
     with jac_tempfile(source) as p:
-        return _run(["build", str(p)], timeout)
+        return invoke(["build", str(p)], timeout)
 
 
-def _free_port() -> int:
+def free_port() -> int:
+    """Ask the OS for an unused TCP port."""
     s = socket.socket()
     s.bind(("", 0))
     port = s.getsockname()[1]
@@ -71,7 +72,7 @@ def start_http_check(
 ) -> tuple[bool, str]:
     """Spin up `jac start`, hit `path`, return (ok, detail)."""
     with jac_tempfile(source) as p:
-        port = _free_port()
+        port = free_port()
         proc = subprocess.Popen(
             [JAC, "start", str(p), "--port", str(port)],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -81,8 +82,7 @@ def start_http_check(
             try:
                 url = f"http://127.0.0.1:{port}{path}"
                 with urllib.request.urlopen(url, timeout=timeout) as resp:
-                    ok = resp.status == 200
-                    return ok, f"status={resp.status}"
+                    return resp.status == 200, f"status={resp.status}"
             except Exception as exc:
                 return False, f"{type(exc).__name__}: {exc}"
         finally:

@@ -1,8 +1,8 @@
 """Inspect a JSONL file and print/save the structural schema.
 
 Usage:
-    python script/utils/json_struct.py --in path/to/data.jsonl [--out schema.json]
-    from utils.json_struct import inspect_jsonl
+    python script/dataset/inspect.py --in path/to/data.jsonl [--out schema.json]
+    from dataset.inspect import inspect_jsonl
 """
 
 import argparse, json

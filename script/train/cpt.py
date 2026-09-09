@@ -1,227 +1,215 @@
-import argparse, os, re
+import argparse
+import sys
 from pathlib import Path
-from unsloth import FastLanguageModel
-import torch
+
 from datasets import load_dataset
-from transformers import TrainingArguments
 from unsloth import (
+    FastLanguageModel,
     UnslothTrainer,
     UnslothTrainingArguments,
     is_bfloat16_supported,
 )
-from datetime import datetime
-now = datetime.now()
-timestamp= now.strftime("%m-%d_%H-%M")
 
-# CLI overrides (any --flag beats the in-file default below) ===============
-cli = argparse.ArgumentParser(add_help=False)
-cli.add_argument("--ds", "--dataset", dest="dataset")
-cli.add_argument("--adapter", "--adapter-path", dest="adapter")
-cli.add_argument("--epochs", type=int)
-cli.add_argument("--lr", type=float)
-cli.add_argument("--rank", type=int)
-cli.add_argument("--steps", dest="max_steps", type=int)
-cli.add_argument("--resume", dest="resume", help="checkpoint-N dir to resume from (restores optimizer/scheduler/RNG); mutex with --adapter")
-args, _ = cli.parse_known_args()
-if args.resume and args.adapter:
-    raise SystemExit("--resume and --adapter are mutually exclusive; --resume already loads adapter weights + optimizer state")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from utils import finalize_out_dir, print_gpu_banner, save_adapter
 
-# Model Setting ===========================================
 
-ADAPTER_PATH   = args.adapter or ""  # If not empty, train on BASE_MODEL + ADAPTER
-RESUME_FROM    = args.resume  or ""  # If not empty, resume trainer state from this checkpoint dir
-BASE_MODEL     = "ornith-ai/Ornith-1.5-9B" # Base model
+# Defaults (also the config schema for train.py) ============================
+def default_config() -> dict:
+    return {
+        # Model
+        "base_model":     "ornith-ai/Ornith-1.5-9B",
+        "adapter":        "",
+        "resume_from":    "",
+        "max_seq_length": 4096,
+        "dtype":          None,
+        "load_in_4bit":   True,
+        "text_only":      True,   # Ornith is processor-wrapped VLM; unwrap
+        # Output
+        "run_name":       "",
+        "out_dir":        "",
+        "merge":          False,
+        "save_method":    "merged_4bit",
+        "push_hf":        False,
+        "hf_org":         "jaseci",
+        "hf_token":       "",
+        "report_to":      ["tensorboard"],
+        "log_freq":       10,
+        # Hyperparameters
+        "epochs":         3,
+        "batch_size":     1,
+        "grad_acc":       10,
+        "optimizer":      "adamw_8bit",
+        "lr":             5e-5,
+        "embed_lr":       0,
+        "scheduler":      "linear",
+        "warmup_steps":   5,
+        "max_steps":      -1,
+        "weight_decay":   1e-3,
+        "save_steps":     50,
+        "eval_steps":     0.1,
+        "do_eval":        False,  # CPT eval OOMs on 16GB VRAM; flip when fixed
+        # LoRA
+        "lora_rank":      128,
+        "lora_alpha":     32,
+        "lora_dropout":   0,
+        "target_module": ["q_proj", "k_proj", "v_proj",
+                          "o_proj", "gate_proj",
+                          "up_proj", "down_proj",
+                          "embed_tokens", "lm_head"],
+        "rslora":         True,
+        "bias":           "none",
+        "grad_checkpt":   "unsloth",
+        # Misc
+        "seed":           3407,
+        "packing":        True,  # CPT: safe, big throughput win. Turn off only for debug.
+    }
 
-MAX_SEQ_LENGTH = 4096
-DTYPE          = None # None for auto detection
-LOAD_IN_4BIT   = True
-TEXT_ONLY      = True # Ornith is processor-wrapped VLM; unwrap so adapter keys stay flat (matches eval/inference)
 
-# Dataset Setting ==========================================
-
-DATA_DIR      = f"{Path(__file__).resolve().parent}/../../dataset/cpt"
-DATASET       = args.dataset or "Ayush-ground-truth"
-DO_EVAL       = False   # CPT eval OOMs on 16GB VRAM (unsloth fp32 upcast); flip when fixed
-TRAIN_SET     = [f"{DATA_DIR}/{DATASET}/train.jsonl"]
-VALID_FP      = Path(f"{DATA_DIR}/{DATASET}/valid.jsonl")
-VALID_SET     = [str(VALID_FP)] if (DO_EVAL and VALID_FP.is_file()) else []
-
-# Output Setting ==========================================
-
-OUT_DIR       = str((Path(__file__).resolve().parent.parent.parent / "output" / "adapter" / f"{timestamp}-{DATASET}").resolve())
-OUT_NAME      = f"{BASE_MODEL}"
-MERGE         = False
-SAVE_METHOD   = "merged_4bit" # or "merged_16bit"
-
-HF_ORG        = "jaseci"
-PUSH_HF       = False
-HF_TOKEN      = ""
-# HF_TOKEN      = os.environ["HF_TOKEN"]
-
-TRAIN_LOG     = ""
-REPORT_TO     = ["tensorboard"] # "none", "wandb"
-TENSORBRD_DIR = f"{OUT_DIR}/runs" # folder path, empty to disable
-LOG_FREQ      = 10
-
-Path(TENSORBRD_DIR).mkdir(parents=True, exist_ok=True)  # eager create, avoid TB async writer race
-
-# Hyperparameters =========================================
-
-EPOCHS        = args.epochs or 3
-BATCH_SIZE    = 1
-GRAD_ACC      = 10
-
-OPTIMIZER     = "adamw_8bit"
-
-LEARNING_RATE = args.lr or 5e-5
-EMBED_LR      = 0
-
-SCHEDULER     = "linear"
-WARMUP_STEPS  = 5
-MAX_STEPS     = args.max_steps if args.max_steps is not None else -1  # < 0 => train by epochs
-WEIGHT_DECAY  = 1e-3
-
-SAVE_STEPS    = 50
-EVAL_STEPS    = 0.1
-
-LORA_RANK     = args.rank or 128
-LORA_ALPHA    = 32
-LORA_DROPOUT  = 0
-TARGET_MODULE = ["q_proj", "k_proj", "v_proj",
-                 "o_proj", "gate_proj",
-                 "up_proj", "down_proj",
-                 "embed_tokens", "lm_head"]
-RSLORA        = True
-
-BIAS          = "none"
-GRAD_CHECKPT  = "unsloth"
-
-RANDOM_SEED   = 3407
-PACKING       = True   # CPT: safe, big throughput win. Turn off only for debug.
-COMPLETION    = False  # SFT
-
-# Enviorment Setting ======================================
-
-# os.environ["UNSLOTH_RETURN_LOGITS"] = "1"
-
-# Load Model ==============================================
-
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = ADAPTER_PATH or BASE_MODEL, # Choose ANY! eg teknium/OpenHermes-2.5-Mistral-7B
-    max_seq_length = MAX_SEQ_LENGTH,
-    dtype = DTYPE,
-    load_in_4bit = LOAD_IN_4BIT,
-    text_only = TEXT_ONLY,
-    # token = "YOUR_HF_TOKEN", # HF Token for gated models
-)
-
-# When ADAPTER_PATH is set, from_pretrained already returned a PEFT-wrapped
-# model — calling get_peft_model again would double-wrap and error. Shape
-# hyperparameters (rank / target_modules / alpha) are then frozen by the
-# checkpoint; to change them, merge first (see README).
-if not ADAPTER_PATH:
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r               = LORA_RANK,
-        target_modules  = TARGET_MODULE,
-        lora_alpha      = LORA_ALPHA,
-        lora_dropout    = LORA_DROPOUT,
-        bias            = BIAS,
-        use_gradient_checkpointing = GRAD_CHECKPT,
-        random_state    = RANDOM_SEED,
-        use_rslora      = RSLORA,
-        loftq_config    = None,
-    )
-
-# Load Dataset ==============================================
-
-EOS_TOKEN = tokenizer.eos_token
-
-def append_eos(batch):
+def append_eos(batch: dict, eos: str) -> dict:
     return {
         "text": [
-            text
-            if text.rstrip().endswith(EOS_TOKEN)
-            else text + EOS_TOKEN
-            for text in batch["text"]
+            t if t.rstrip().endswith(eos) else t + eos
+            for t in batch["text"]
         ]
     }
 
-train_ds = load_dataset("json", data_files={"train": TRAIN_SET}, split="train")
-train_ds = train_ds.map(append_eos, batched=True, desc="Appending EOS (train)")
 
-eval_ds = None
-if VALID_SET:
-    eval_ds = load_dataset("json", data_files={"valid": VALID_SET}, split="valid")
-    eval_ds = eval_ds.map(append_eos, batched=True, desc="Appending EOS (valid)")
+def run_cpt(config: dict, train_ds, eval_ds=None):
+    """Run one CPT training loop over the given HF datasets.
 
-# Training Config =========================================
+    `train_ds` and (optional) `eval_ds` must expose a `text` field. Rows are
+    normalized here — EOS is appended if missing.
+    """
+    cfg = {**default_config(), **config}
+    finalize_out_dir(cfg)
+    Path(cfg["out_dir"], "runs").mkdir(parents=True, exist_ok=True)
 
-training_args = UnslothTrainingArguments(
-    per_device_train_batch_size = BATCH_SIZE,
-    gradient_accumulation_steps = GRAD_ACC,
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name     = cfg["adapter"] or cfg["base_model"],
+        max_seq_length = cfg["max_seq_length"],
+        dtype          = cfg["dtype"],
+        load_in_4bit   = cfg["load_in_4bit"],
+        text_only      = cfg["text_only"],
+    )
 
-    num_train_epochs            = EPOCHS,
-    max_steps                   = MAX_STEPS,
-    warmup_steps                = WARMUP_STEPS,
+    # `adapter` set means from_pretrained already wrapped the model with PEFT;
+    # skip get_peft_model to avoid double-wrapping. LoRA shape is then frozen
+    # by the checkpoint; to change rank/target_modules, merge first.
+    if not cfg["adapter"]:
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r                          = cfg["lora_rank"],
+            target_modules             = cfg["target_module"],
+            lora_alpha                 = cfg["lora_alpha"],
+            lora_dropout               = cfg["lora_dropout"],
+            bias                       = cfg["bias"],
+            use_gradient_checkpointing = cfg["grad_checkpt"],
+            random_state               = cfg["seed"],
+            use_rslora                 = cfg["rslora"],
+            loftq_config               = None,
+        )
 
-    learning_rate               = LEARNING_RATE,
-    embedding_learning_rate     = EMBED_LR,
+    eos = tokenizer.eos_token
+    train_ds = train_ds.map(
+        lambda b: append_eos(b, eos), batched=True, desc="Appending EOS (train)"
+    )
+    if eval_ds is not None and cfg["do_eval"]:
+        eval_ds = eval_ds.map(
+            lambda b: append_eos(b, eos), batched=True, desc="Appending EOS (valid)"
+        )
+    else:
+        eval_ds = None
 
-    optim                       = OPTIMIZER,
-    weight_decay                = WEIGHT_DECAY,
-    lr_scheduler_type           = SCHEDULER,
+    training_args = UnslothTrainingArguments(
+        per_device_train_batch_size = cfg["batch_size"],
+        gradient_accumulation_steps = cfg["grad_acc"],
 
-    logging_steps               = LOG_FREQ,
-    save_steps                  = SAVE_STEPS,
+        num_train_epochs = cfg["epochs"],
+        max_steps        = cfg["max_steps"],
+        warmup_steps     = cfg["warmup_steps"],
 
-    fp16                        = not is_bfloat16_supported(),
-    bf16                        = is_bfloat16_supported(),
+        learning_rate           = cfg["lr"],
+        embedding_learning_rate = cfg["embed_lr"],
 
-    seed                        = RANDOM_SEED,
-    output_dir                  = OUT_DIR,
+        optim             = cfg["optimizer"],
+        weight_decay      = cfg["weight_decay"],
+        lr_scheduler_type = cfg["scheduler"],
 
-    eval_strategy               = "steps" if eval_ds is not None else "no",
-    eval_steps                  = EVAL_STEPS if eval_ds is not None else None,
-    per_device_eval_batch_size  = 1,
-    eval_accumulation_steps     = 1,        # spill eval logits to CPU each batch
-    bf16_full_eval              = is_bfloat16_supported(),  # halves eval VRAM
+        logging_steps = cfg["log_freq"],
+        save_steps    = cfg["save_steps"],
 
-    report_to                   = REPORT_TO,
-    logging_dir                 = TENSORBRD_DIR,
-)
+        fp16 = not is_bfloat16_supported(),
+        bf16 = is_bfloat16_supported(),
 
-trainer = UnslothTrainer(
-    model              = model,
-    tokenizer          = tokenizer,
-    train_dataset      = train_ds,
-    eval_dataset       = eval_ds,
-    dataset_text_field = "text",
-    max_seq_length     = MAX_SEQ_LENGTH,
-    dataset_num_proc   = 4,
-    packing            = PACKING,
-    args               = training_args,
-)
+        seed       = cfg["seed"],
+        output_dir = cfg["out_dir"],
 
-# GPU INFO ================================================
+        eval_strategy = "steps" if eval_ds is not None else "no",
+        eval_steps    = cfg["eval_steps"] if eval_ds is not None else None,
+        per_device_eval_batch_size = 1,
+        eval_accumulation_steps    = 1,
+        bf16_full_eval             = is_bfloat16_supported(),
 
-gpu_stats = torch.cuda.get_device_properties(0)
-start_gpu_memory = round(torch.cuda.max_memory_reserved() / 1024 / 1024 / 1024, 3)
-max_memory = round(gpu_stats.total_memory / 1024 / 1024 / 1024, 3)
-print(f"GPU = {gpu_stats.name}. Max memory = {max_memory} GB.")
-print(f"{start_gpu_memory} GB of memory reserved.")
+        report_to   = cfg["report_to"],
+        logging_dir = f"{cfg['out_dir']}/runs",
+    )
 
-# TRAIN ================================================
+    trainer = UnslothTrainer(
+        model              = model,
+        tokenizer          = tokenizer,
+        train_dataset      = train_ds,
+        eval_dataset       = eval_ds,
+        dataset_text_field = "text",
+        max_seq_length     = cfg["max_seq_length"],
+        dataset_num_proc   = 4,
+        packing            = cfg["packing"],
+        args               = training_args,
+    )
 
-trainer_stats = trainer.train(resume_from_checkpoint=RESUME_FROM or None)
+    print_gpu_banner()
+    trainer.train(resume_from_checkpoint=cfg["resume_from"] or None)
+    save_adapter(model, tokenizer, cfg, stage="cpt")
 
-# SAVE ================================================
 
-if MERGE:
-    model.save_pretrained_merged(f"{OUT_DIR}/merged", tokenizer, save_method = SAVE_METHOD,)
-else:
-    model.save_pretrained(f"{OUT_DIR}/adapter")
-    tokenizer.save_pretrained(f"{OUT_DIR}/adapter")
+# CLI (single-dataset workflow — recipes go through train.py) ===============
+def config_from_cli() -> tuple[dict, str, str]:
+    cli = argparse.ArgumentParser(add_help=False)
+    cli.add_argument("--ds", "--dataset", dest="dataset")
+    cli.add_argument("--adapter", "--adapter-path", dest="adapter")
+    cli.add_argument("--epochs", type=int)
+    cli.add_argument("--lr", type=float)
+    cli.add_argument("--rank", type=int)
+    cli.add_argument("--steps", dest="max_steps", type=int)
+    cli.add_argument("--resume", dest="resume",
+                     help="checkpoint dir to resume from (mutex with --adapter)")
+    args, _ = cli.parse_known_args()
+    if args.resume and args.adapter:
+        raise SystemExit(
+            "--resume and --adapter are mutually exclusive; --resume already "
+            "loads adapter weights + optimizer state"
+        )
 
-if PUSH_HF:
-     model.push_to_hub_merged(f"{HF_ORG}/JacLLM-{BASE_MODEL}", tokenizer, save_method = SAVE_METHOD, token = HF_TOKEN)
+    cfg = default_config()
+    dataset = args.dataset or "Ayush-ground-truth"
+    cfg["adapter"]      = args.adapter or ""
+    cfg["resume_from"]  = args.resume  or ""
+    if args.epochs    is not None: cfg["epochs"]    = args.epochs
+    if args.lr        is not None: cfg["lr"]        = args.lr
+    if args.rank      is not None: cfg["lora_rank"] = args.rank
+    if args.max_steps is not None: cfg["max_steps"] = args.max_steps
+    cfg["run_name"] = dataset
+
+    data_dir = Path(__file__).resolve().parent.parent.parent / "dataset" / "cpt"
+    return cfg, str(data_dir / dataset / "train.jsonl"), str(data_dir / dataset / "valid.jsonl")
+
+
+if __name__ == "__main__":
+    cfg, train_fp, valid_fp = config_from_cli()
+
+    train_ds = load_dataset("json", data_files={"train": [train_fp]}, split="train")
+    eval_ds  = None
+    if cfg["do_eval"] and Path(valid_fp).is_file():
+        eval_ds = load_dataset("json", data_files={"valid": [valid_fp]}, split="valid")
+
+    run_cpt(cfg, train_ds, eval_ds)

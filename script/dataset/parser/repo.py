@@ -26,10 +26,7 @@ KEEP_NAMES: frozenset[str] = frozenset({
 
 def keep_path(path: Path, repo_root: Path) -> bool:
     """True iff `path` is dev-authored source we want in training."""
-    try:
-        rel = path.relative_to(repo_root)
-    except ValueError:
-        return False
+    rel = path.relative_to(repo_root)
     if any(part in DROP_DIRS for part in rel.parts):
         return False
     if path.suffix in DROP_EXTS:

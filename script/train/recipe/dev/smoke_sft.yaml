@@ -1,0 +1,31 @@
+# 30-step SFT smoke test — one small task, no eval.
+recipe:
+  name: smoke_sft
+  stage: sft
+  base_model: ornith-ai/Ornith-1.5-9B
+  seed: 3407
+  max_seq_length: 4096
+  load_in_4bit: true
+  text_only: true
+  chat_template: qwen-2.5
+  report_to: []                 # skip tensorboard for smoke test
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 4
+  lr: 2.0e-4
+  warmup_steps: 2
+  save_steps: 100
+  do_eval: false
+  max_steps: 30
+  lora_rank: 16
+  lora_alpha: 16
+  packing: false
+
+mixing:
+  strategy: concat
+
+datasets:
+  - task: osp
+    name: Nitin-1k-osp

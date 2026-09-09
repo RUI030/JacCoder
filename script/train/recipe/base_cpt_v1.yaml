@@ -1,0 +1,54 @@
+# Base CPT recipe — concat the three CPT datasets, one epoch each.
+# Run with:  python script/train/train.py --recipe script/train/recipe/base_cpt_v1.yaml
+
+recipe:
+  name: base_cpt_v1
+  stage: cpt
+  base_model: ornith-ai/Ornith-1.5-9B
+  adapter: ""            # continue-from adapter (leave empty for fresh)
+  seed: 3407
+  max_seq_length: 4096
+  load_in_4bit: true
+  text_only: true
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 10
+  lr: 5.0e-5
+  embed_lr: 0
+  optimizer: adamw_8bit
+  scheduler: linear
+  warmup_steps: 5
+  weight_decay: 1.0e-3
+  save_steps: 50
+  eval_steps: 0.1
+  do_eval: false
+  lora_rank: 128
+  lora_alpha: 32
+  lora_dropout: 0
+  rslora: true
+  bias: none
+  grad_checkpt: unsloth
+  packing: true
+  target_module:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+    - embed_tokens
+    - lm_head
+
+mixing:
+  strategy: concat         # concat | interleave
+
+datasets:
+  - name: Nitin-9k-py2jac-idiom
+    repeat: 1
+  - name: Nitin-jachack-all
+    repeat: 1
+  - name: Nitin-4repo-cpt
+    repeat: 2              # small (119 rows) — oversample so it doesn't get drowned

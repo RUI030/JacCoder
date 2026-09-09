@@ -1,20 +1,21 @@
-import json, random, sys
+import random, sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from utils.io import iter_sources, json2parquet
+from utils.io         import iter_sources
 from utils.classifier import classify_structural as classify
+from dataset.pipeline import load_prompts, report, split_and_write
 
 # Setting =================================================
 DS_FORMAT    = "jac"
 DS_NAME      = "Nitin-js2jac"
 SOURCE       = "code"
 TASK_TYPE    = "js2jac"
-JSON_KEYWORD = "jac"  # JSONL mode: field holding the Jac target
-FP_KEY       = "id"   # JSONL mode: field to use as sample id (fp)
-JS_KEY       = "js"   # JSONL mode: field holding the JS/TS source
-STATUS_KEY   = "status_in"     # JSONL mode: field indicating record validity
-STATUS_OK    = "convertible"   # keep only records whose STATUS_KEY equals this
+JSON_KEYWORD = "jac"                    # JSONL mode: field holding the Jac target
+FP_KEY       = "id"                     # JSONL mode: field to use as sample id (fp)
+JS_KEY       = "js"                     # JSONL mode: field holding the JS/TS source
+STATUS_KEY   = "status_in"              # JSONL mode: field indicating record validity
+STATUS_OK    = "convertible"            # keep only records whose STATUS_KEY equals this
 
 DS_ROOT = f"{Path(__file__).resolve().parent}/../../../dataset"
 IN_DIR  = f"{DS_ROOT}/raw/{DS_FORMAT}/{DS_NAME}"
@@ -25,27 +26,37 @@ OUT_FORMAT = "jsonl"
 VALID_SIZE = 0.2
 SEED       = 3407
 
-
 # Functions ===============================================
+def build_record(fp: str, js: str, jac: str, prompts: dict, rng: random.Random) -> dict:
+    instruction = f"{rng.choice(prompts[TASK_TYPE])}\n```ts\n{js}\n```"
+    answer      = f"```jac\n{jac}\n```"
+    return {
+        "messages": [
+            {"role": "system",    "content": rng.choice(prompts["system"])},
+            {"role": "user",      "content": instruction},
+            {"role": "assistant", "content": answer},
+        ],
+        "meta": {
+            "source":    SOURCE,
+            "format":    DS_FORMAT,
+            "class":     classify(jac),
+            "task_type": TASK_TYPE,
+            "fp":        fp,
+        },
+    }
+
 def jsonl2js2jac(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
     """Turn (js, jac) pairs into SFT records with a js2jac conversion prompt."""
-    in_dir = Path(in_dir)
+    in_dir  = Path(in_dir)
     out_dir = Path(out_dir)
-    format = format.lower()
-
-    if format not in {"jsonl", "parquet"}:
-        raise ValueError("format must be either 'jsonl' or 'parquet'")
-    if not in_dir.is_dir():
-        raise NotADirectoryError(f"Input directory not found: {in_dir}")
-    if not 0 <= VALID_SIZE < 1:
-        raise ValueError("VALID_SIZE must be between 0 (inclusive) and 1")
+    format  = format.lower()
 
     raw_root = Path(f"{DS_ROOT}/raw/{DS_FORMAT}")
     samples: list[tuple[str, str, str]] = []  # (fp, js, jac)
     for fp, jac, extras in iter_sources(in_dir, raw_root, JSON_KEYWORD, FP_KEY, (JS_KEY, STATUS_KEY)):
         if extras.get(STATUS_KEY) != STATUS_OK:
             continue
-        js = (extras.get(JS_KEY) or "").strip()
+        js  = (extras.get(JS_KEY) or "").strip()
         jac = jac.strip()
         if not js or not jac:
             continue
@@ -53,57 +64,13 @@ def jsonl2js2jac(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
     if not samples:
         raise ValueError(f"No convertible (js, jac) pairs found in: {in_dir}")
 
-    with Path(PROMPT).open("r", encoding="utf-8") as file:
-        tpl = json.load(file)
-    systems  = tpl.get("system", [])
-    prefixes = tpl.get(TASK_TYPE, [])
-    if not systems or not prefixes:
-        raise ValueError(f"Missing 'system' or '{TASK_TYPE}' in: {PROMPT}")
-
-    rng = random.Random(SEED)
+    prompts = load_prompts(PROMPT, "system", TASK_TYPE)
+    rng     = random.Random(SEED)
     rng.shuffle(samples)
-    valid_count = int(len(samples) * VALID_SIZE)
-    splits = {
-        "valid": samples[:valid_count],
-        "train": samples[valid_count:],
-    }
+    records = [build_record(fp, js, jac, prompts, rng) for fp, js, jac in samples]
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    counts = {}
-    for split, records in splits.items():
-        output_file = Path(f"{out_dir}/{split}.jsonl")
-        n = 0
-        with output_file.open("w", encoding="utf-8") as out:
-            for fp, js, jac in records:
-                instruction = f"{rng.choice(prefixes)}\n```ts\n{js}\n```"
-                answer      = f"```jac\n{jac}\n```"
-                record = {
-                    "messages": [
-                        {"role": "system",    "content": rng.choice(systems)},
-                        {"role": "user",      "content": instruction},
-                        {"role": "assistant", "content": answer},
-                    ],
-                    "meta": {
-                        "source": SOURCE,
-                        "format": DS_FORMAT,
-                        "class": classify(jac),
-                        "task_type": TASK_TYPE,
-                        "fp": fp,
-                    },
-                }
-                json.dump(record, out, ensure_ascii=False)
-                out.write("\n")
-                n += 1
-        counts[split] = n
-
-    if format == "parquet":
-        json2parquet(out_dir, out_dir)
-
-    print(
-        f"Created {counts['train']} train and {counts['valid']} validation "
-        f"samples in {out_dir}"
-    )
-
+    counts = split_and_write(records, out_dir, VALID_SIZE, format)
+    report(counts, out_dir)
 
 # Run =====================================================
 if __name__ == "__main__":

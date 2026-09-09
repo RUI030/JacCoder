@@ -2,9 +2,9 @@ import json, random, sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from utils.io import json2parquet
-from utils.jac_block import first_jac_block
+from utils.jac_block  import first_jac_block
 from utils.classifier import classify_structural as classify
+from dataset.pipeline import report, split_and_write
 
 # Setting =================================================
 DS_FORMAT = "jac"
@@ -21,7 +21,7 @@ SEED       = 3407
 FP_KEY    = "id"
 KEEP_META = (
     "category",
-    "subtype",         # raw's task_type (renamed to avoid collision with our TASK_TYPE)
+    "subtype",                          # raw's task_type (renamed to avoid TASK_TYPE collision)
     "complexity",
     "compiler_pass",
     "test_pass",
@@ -72,6 +72,32 @@ def infer_class(our_task: str, raw_task: str, messages: list) -> str | None:
     return None
 
 
+def build_record(rec: dict) -> tuple[str, dict] | None:
+    """Route one raw row → (our_task, envelope-record). Returns None to skip."""
+    messages = rec.get("messages")
+    if not messages:
+        return None
+    category = rec.get("category", "")
+    raw_task = rec.get("task_type", "")
+    our_task = route(category, raw_task)
+
+    meta = {
+        "source":    SOURCE,
+        "format":    DS_FORMAT,
+        "task_type": our_task,
+        "fp":        rec.get(FP_KEY) or "",
+    }
+    cls = infer_class(our_task, raw_task, messages)
+    if cls is not None:
+        meta["class"] = cls
+    for k in KEEP_META:
+        src_key = "task_type" if k == "subtype" else k
+        if src_key in rec:
+            meta[k] = rec[src_key]
+
+    return our_task, {"messages": messages, "meta": meta}
+
+
 def qa2sft(in_file=IN_FILE, out_root=None, format=OUT_FORMAT):
     """Read Opus-synthesized SFT JSONL, route to task-type folders, keep
     `messages` as-is, trim meta, shuffle-split each bucket 80/20."""
@@ -79,72 +105,28 @@ def qa2sft(in_file=IN_FILE, out_root=None, format=OUT_FORMAT):
     out_root = Path(out_root) if out_root else Path(f"{DS_ROOT}/sft")
     format   = format.lower()
 
-    if format not in {"jsonl", "parquet"}:
-        raise ValueError("format must be either 'jsonl' or 'parquet'")
-    if not in_path.is_file():
-        raise FileNotFoundError(f"Input file not found: {in_path}")
-    if not 0 <= VALID_SIZE < 1:
-        raise ValueError("VALID_SIZE must be between 0 (inclusive) and 1")
-
     buckets: dict[str, list[dict]] = {}
     with in_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            rec = json.loads(line)
-            messages = rec.get("messages")
-            if not messages:
+            built = build_record(json.loads(line))
+            if built is None:
                 continue
-            category  = rec.get("category", "")
-            raw_task  = rec.get("task_type", "")
-            our_task  = route(category, raw_task)
-
-            meta = {
-                "source":    SOURCE,
-                "format":    DS_FORMAT,
-                "task_type": our_task,
-                "fp":        rec.get(FP_KEY) or "",
-            }
-            cls = infer_class(our_task, raw_task, messages)
-            if cls is not None:
-                meta["class"] = cls
-            for k in KEEP_META:
-                src_key = "task_type" if k == "subtype" else k
-                if src_key in rec:
-                    meta[k] = rec[src_key]
-
-            buckets.setdefault(our_task, []).append({"messages": messages, "meta": meta})
+            our_task, rec = built
+            buckets.setdefault(our_task, []).append(rec)
 
     if not buckets:
         raise ValueError(f"No usable records in: {in_path}")
 
     for our_task in sorted(buckets):
-        records = buckets[our_task]
         rng = random.Random(SEED)
-        rng.shuffle(records)
-        valid_count = int(len(records) * VALID_SIZE)
-        splits = {
-            "valid": records[:valid_count],
-            "train": records[valid_count:],
-        }
-
+        rng.shuffle(buckets[our_task])
         out_dir = out_root / our_task / DS_NAME
-        out_dir.mkdir(parents=True, exist_ok=True)
-        for split, recs in splits.items():
-            output_file = out_dir / f"{split}.jsonl"
-            with output_file.open("w", encoding="utf-8") as out:
-                for r in recs:
-                    json.dump(r, out, ensure_ascii=False)
-                    out.write("\n")
-
-        if format == "parquet":
-            json2parquet(out_dir, out_dir)
-
-        print(
-            f"[{our_task:9s}]  {len(splits['train'])} train / "
-            f"{len(splits['valid'])} valid  ->  {out_dir}"
-        )
+        counts  = split_and_write(buckets[our_task], out_dir, VALID_SIZE, format)
+        print(f"[{our_task:9s}]  {counts.get('train', 0)} train / "
+              f"{counts.get('valid', 0)} valid  ->  {out_dir}")
 
 
 # Run =====================================================
