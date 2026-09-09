@@ -35,6 +35,14 @@
         "Please provide the full Jac code for the function described. Respond with a ```jac ... ``` block only.",
         "Based on the header below, produce the corresponding Jac implementation."
     ],
+    "scaffold2impl":[
+        "Fill in the implementation bodies for the Jac scaffold below. Preserve the declarations, imports, and docstrings; replace every `{ ... }` with real code. Respond with a single ```jac ... ``` block containing the completed file.",
+        "The Jac file below has its function, ability, and entry-block bodies stripped to `{ ... }`. Complete each body so the file is fully implemented. Reply with a ```jac ... ``` block only.",
+        "Given the Jac scaffold below (declarations only, bodies replaced with `{ ... }`), write the full implementation. Keep the existing structure and docstrings. Wrap your answer in ```jac ... ```.",
+        "Complete this Jac source. Every `{ ... }` marks a body you must fill in. Return the finished file inside a ```jac ... ``` block.",
+        "Below is a Jac file skeleton. Replace each `{ ... }` placeholder with a working implementation consistent with the declarations and docstrings. Output a single ```jac ... ``` block.",
+        "Turn this Jac scaffold into a runnable file by writing every missing body. Return only ```jac ... ```."
+    ],
     "farm":[
         "Given the following Jac graph schema, write CRUD walkers (create, list, delete, and update where applicable) for the '{node}' node. Respond with only a ```jac ... ``` block.",
         "Below is a Jac schema with node and edge declarations. Produce the public CRUD walkers targeting the '{node}' node. Wrap your answer in ```jac ... ```.",

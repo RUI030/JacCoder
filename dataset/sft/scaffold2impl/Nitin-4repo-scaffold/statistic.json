@@ -1,0 +1,134 @@
+{
+    "train": {
+        "count": 105,
+        "length": {
+            "unit": "characters",
+            "avg": 7482.81,
+            "median": 4502,
+            "std": 10686.76,
+            "min": 452,
+            "max": 78054
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 1,
+            "501-1000": 9,
+            "1001-2000": 14,
+            "2001-5000": 31,
+            "5001-10000": 26,
+            ">10000": 24
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 0,
+                "markdown": 0,
+                "repo": 105,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 48,
+                "function": 49,
+                "graph": 3,
+                "osp": 5
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 105,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "repo",
+                "class": "fullstack",
+                "source": "code",
+                "count": 48
+            },
+            {
+                "format": "repo",
+                "class": "function",
+                "source": "code",
+                "count": 49
+            },
+            {
+                "format": "repo",
+                "class": "graph",
+                "source": "code",
+                "count": 3
+            },
+            {
+                "format": "repo",
+                "class": "osp",
+                "source": "code",
+                "count": 5
+            }
+        ]
+    },
+    "valid": {
+        "count": 26,
+        "length": {
+            "unit": "characters",
+            "avg": 5585.27,
+            "median": 4370.5,
+            "std": 4839.74,
+            "min": 709,
+            "max": 18513
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 2,
+            "1001-2000": 6,
+            "2001-5000": 8,
+            "5001-10000": 5,
+            ">10000": 5
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 0,
+                "markdown": 0,
+                "repo": 26,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 10,
+                "function": 14,
+                "graph": 0,
+                "osp": 2
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 26,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "repo",
+                "class": "fullstack",
+                "source": "code",
+                "count": 10
+            },
+            {
+                "format": "repo",
+                "class": "function",
+                "source": "code",
+                "count": 14
+            },
+            {
+                "format": "repo",
+                "class": "osp",
+                "source": "code",
+                "count": 2
+            }
+        ]
+    }
+}
