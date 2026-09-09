@@ -39,7 +39,15 @@ def save_adapter(model, tokenizer, cfg: dict, stage: str) -> None:
         model.save_pretrained(f"{out}/adapter")
         tokenizer.save_pretrained(f"{out}/adapter")
     if cfg.get("push_hf"):
-        repo = f"{cfg['hf_org']}/JacLLM-{cfg['base_model']}"
+        model_name = Path(cfg["base_model"]).name
+        repo = cfg.get("hf_repo") or f"{cfg['hf_org']}/JacLLM-{model_name}"
         if stage == "sft":
             repo += "-sft"
-        model.push_to_hub_merged(repo, tokenizer, save_method=cfg["save_method"], token=cfg["hf_token"])
+        if cfg.get("merge"):
+            model.push_to_hub_merged(
+                repo, tokenizer,
+                save_method=cfg["save_method"], token=cfg["hf_token"],
+            )
+        else:
+            model.push_to_hub(repo, token=cfg["hf_token"])
+            tokenizer.push_to_hub(repo, token=cfg["hf_token"])

@@ -50,5 +50,5 @@ datasets:
     repeat: 1
   - name: Nitin-jachack-all
     repeat: 1
-  - name: Nitin-4repo-cpt
+  - name: Rui-jacapp-cpt
     repeat: 2              # small (119 rows) — oversample so it doesn't get drowned

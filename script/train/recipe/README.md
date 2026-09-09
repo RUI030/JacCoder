@@ -22,6 +22,9 @@ python script/train/train.py --recipe recipe.py --adapter path/to/prev
 
 Recipes are YAML (`.yaml` / `.yml`) or Python (`.py` — must export
 `RECIPE = {...}` at module level). Both parse to the same dict shape.
+The schema is strict: unknown keys are rejected instead of silently falling
+back to a default. Start from one of the checked-in recipes when creating a
+new one.
 
 ```yaml
 recipe:
@@ -29,6 +32,7 @@ recipe:
   stage: sft                     # cpt | sft
   base_model: ornith-ai/Ornith-1.5-9B
   adapter: ""                    # optional continue-from adapter path
+  hf_repo: ""                    # optional exact repo id; default: <hf_org>/JacLLM-<model-name>
   seed: 3407
   max_seq_length: 4096
   load_in_4bit: true
@@ -66,6 +70,9 @@ Given `stage=sft`:
 | `task=osp, name=[Nitin-1k-osp]` | one dir |
 | `task=js2jac` (no `name`) | every subdir under `dataset/sft/js2jac/` |
 | `split=[train, valid]` | both jsonls concatenated into one HF split |
+
+Missing dataset directories or splits are skipped with a visible warning. If
+all requested training data is missing, the run stops before loading a model.
 
 Given `stage=cpt`:
 

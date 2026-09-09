@@ -34,6 +34,7 @@ def default_config() -> dict:
         "save_method":    "merged_4bit",
         "push_hf":        False,
         "hf_org":         "jaseci",
+        "hf_repo":        "",
         "hf_token":       "",
         "report_to":      ["tensorboard"],
         "log_freq":       10,

@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import yaml
 from datasets import (
     Dataset,
     concatenate_datasets,
@@ -28,7 +29,6 @@ def load_recipe(path: str | Path) -> dict:
     if not p.is_file():
         raise FileNotFoundError(f"Recipe not found: {p}")
     if p.suffix.lower() in {".yaml", ".yml"}:
-        import yaml
         return yaml.safe_load(p.read_text(encoding="utf-8"))
     if p.suffix.lower() == ".py":
         spec = importlib.util.spec_from_file_location(p.stem, p)
@@ -78,6 +78,7 @@ def load_splits(ds_dir: Path, splits: list[str]) -> Dataset | None:
     """
     files = [str(ds_dir / f"{s}.jsonl") for s in splits if (ds_dir / f"{s}.jsonl").is_file()]
     if not files:
+        print(f"[mixer] WARNING: skipping {ds_dir}; none of these splits exist: {splits}")
         return None
     ds = load_dataset("json", data_files=files, split="train")
     drop = [c for c in ds.column_names if c not in TRAIN_COLUMNS]
@@ -141,14 +142,49 @@ def mix(items: list[tuple[str, Dataset, float, int]], mixing: dict, seed: int) -
 # Config assembly ===========================================================
 MODEL_KEYS      = ("base_model", "adapter", "resume_from", "run_name", "out_dir",
                    "seed", "max_seq_length", "load_in_4bit", "text_only",
+                   "dtype",
                    "chat_template", "merge", "save_method", "push_hf",
-                   "hf_org", "hf_token", "report_to", "log_freq")
+                   "hf_org", "hf_repo", "hf_token", "report_to", "log_freq")
 HYPERPARAM_KEYS = ("epochs", "batch_size", "grad_acc", "optimizer",
                    "lr", "embed_lr", "scheduler", "warmup_steps", "max_steps",
                    "weight_decay", "save_steps", "eval_steps", "do_eval",
                    "lora_rank", "lora_alpha", "lora_dropout", "target_module",
                    "rslora", "bias", "grad_checkpt", "packing",
                    "instruction_part", "response_part")
+
+TOP_LEVEL_KEYS = {"recipe", "hyperparams", "mixing", "datasets"}
+MIXING_KEYS = {"strategy", "stopping"}
+DATASET_KEYS = {"task", "name", "names", "split", "splits", "weight", "repeat"}
+
+
+def reject_unknown(section: str, values: dict, allowed) -> None:
+    """Reject recipe keys outside the documented schema."""
+    unknown = sorted(set(values) - set(allowed))
+    if unknown:
+        raise ValueError(f"Unknown key(s) in {section}: {', '.join(unknown)}")
+
+
+def validate_recipe(recipe: dict) -> None:
+    """Validate recipe structure before resolving datasets."""
+    if not isinstance(recipe, dict):
+        raise ValueError("Recipe root must be a mapping.")
+    reject_unknown("recipe root", recipe, TOP_LEVEL_KEYS)
+
+    sections = ("recipe", "hyperparams", "mixing")
+    for section in sections:
+        if section in recipe and not isinstance(recipe[section], dict):
+            raise ValueError(f"`{section}` must be a mapping.")
+    reject_unknown("recipe", recipe.get("recipe", {}), MODEL_KEYS + ("name", "stage"))
+    reject_unknown("hyperparams", recipe.get("hyperparams", {}), HYPERPARAM_KEYS + ("max_seq_len",))
+    reject_unknown("mixing", recipe.get("mixing", {}), MIXING_KEYS)
+
+    datasets = recipe.get("datasets", [])
+    if not isinstance(datasets, list):
+        raise ValueError("`datasets` must be a list.")
+    for index, entry in enumerate(datasets):
+        if not isinstance(entry, dict):
+            raise ValueError(f"datasets[{index}] must be a mapping.")
+        reject_unknown(f"datasets[{index}]", entry, DATASET_KEYS)
 
 
 def merge_config(recipe: dict) -> dict:
@@ -173,6 +209,7 @@ def merge_config(recipe: dict) -> dict:
 def build_from_recipe(path: str | Path) -> tuple[str, dict, Dataset, Dataset | None]:
     """Read a recipe file → (stage, config, train_ds, eval_ds)."""
     recipe = load_recipe(path)
+    validate_recipe(recipe)
     r = recipe.get("recipe", {})
     stage = (r.get("stage") or "").lower()
     if stage not in ("cpt", "sft"):

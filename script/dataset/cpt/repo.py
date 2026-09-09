@@ -8,7 +8,7 @@ from dataset.pipeline    import report, split_and_write
 
 # Setting =================================================
 DS_FORMAT    = "repo"
-DS_NAME      = "Nitin-4repo-cpt"
+DS_NAME      = "Rui-jacapp-cpt"
 SOURCE       = "code"
 TARGET_CHARS = 14000                    # ~4k tokens at ~3.5 chars/token
 
