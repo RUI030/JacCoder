@@ -1,42 +1,42 @@
 {
     "train": {
-        "count": 6099,
+        "count": 828,
         "length": {
             "unit": "characters",
-            "avg": 726.66,
-            "median": 633,
-            "std": 370.95,
-            "min": 223,
-            "max": 7534
+            "avg": 2652.01,
+            "median": 1576.0,
+            "std": 2692.34,
+            "min": 960,
+            "max": 15595
         },
         "histogram": {
             "<=100": 0,
             "101-200": 0,
-            "201-500": 1584,
-            "501-1000": 3577,
-            "1001-2000": 867,
-            "2001-5000": 69,
-            "5001-10000": 2,
-            ">10000": 0
+            "201-500": 0,
+            "501-1000": 5,
+            "1001-2000": 595,
+            "2001-5000": 117,
+            "5001-10000": 77,
+            ">10000": 34
         },
         "property": {
             "format": {
                 "diff": 0,
-                "jac": 6099,
+                "jac": 828,
                 "markdown": 0,
                 "repo": 0,
                 "session": 0
             },
             "class": {
                 "fullstack": 0,
-                "function": 6099,
+                "function": 0,
                 "graph": 0,
-                "osp": 0
+                "osp": 828
             },
             "source": {
-                "agent": 0,
+                "agent": 828,
                 "article": 0,
-                "code": 6099,
+                "code": 0,
                 "docs": 0,
                 "other": 0
             }
@@ -44,50 +44,50 @@
         "combinations": [
             {
                 "format": "jac",
-                "class": "function",
-                "source": "code",
-                "count": 6099
+                "class": "osp",
+                "source": "agent",
+                "count": 828
             }
         ]
     },
     "valid": {
-        "count": 1523,
+        "count": 206,
         "length": {
             "unit": "characters",
-            "avg": 727.58,
-            "median": 620,
-            "std": 384.2,
-            "min": 183,
-            "max": 4618
+            "avg": 2377.55,
+            "median": 1574.0,
+            "std": 2329.83,
+            "min": 944,
+            "max": 13003
         },
         "histogram": {
             "<=100": 0,
-            "101-200": 1,
-            "201-500": 423,
-            "501-1000": 867,
-            "1001-2000": 205,
-            "2001-5000": 27,
-            "5001-10000": 0,
-            ">10000": 0
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 6,
+            "1001-2000": 149,
+            "2001-5000": 30,
+            "5001-10000": 12,
+            ">10000": 9
         },
         "property": {
             "format": {
                 "diff": 0,
-                "jac": 1523,
+                "jac": 206,
                 "markdown": 0,
                 "repo": 0,
                 "session": 0
             },
             "class": {
                 "fullstack": 0,
-                "function": 1523,
+                "function": 0,
                 "graph": 0,
-                "osp": 0
+                "osp": 206
             },
             "source": {
-                "agent": 0,
+                "agent": 206,
                 "article": 0,
-                "code": 1523,
+                "code": 0,
                 "docs": 0,
                 "other": 0
             }
@@ -95,9 +95,9 @@
         "combinations": [
             {
                 "format": "jac",
-                "class": "function",
-                "source": "code",
-                "count": 1523
+                "class": "osp",
+                "source": "agent",
+                "count": 206
             }
         ]
     }

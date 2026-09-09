@@ -144,6 +144,52 @@ tensorboard --logdir path/to/tensorboard
 ```
 under `run` folder in the adapter folder
 
+### Run SFT training
+
+`script/train/sft.py` trains on instruction/response JSONL under `dataset/sft/<task>/<dataset>/{train,valid}.jsonl`. Build these first with a script in `script/dataset/sft/` (see [Prepare an SFT dataset](#prepare-an-sft-dataset)).
+
+Edit the config block at the top of [`script/train/sft.py`](script/train/sft.py):
+
+- `BASE_MODEL`
+- `TASK_TYPE` (e.g. `code_completion`, `js2jac`, `py2jac`, `code_gen`, `qa`)
+- `DATASET` (folder name under `dataset/sft/<TASK_TYPE>/`)
+- `CHAT_TEMPLATE`, `MAX_SEQ_LENGTH`
+- LoRA and training hyperparameters
+
+Then run:
+
+```bash
+python script/train/sft.py
+```
+
+Common CLI overrides (beat the in-file defaults):
+
+```bash
+python script/train/sft.py --task js2jac --ds Nitin-js2jac --epochs 3 --lr 2e-4
+```
+
+Continue training uses the same `--resume` / `--adapter` semantics as CPT — see [Continue training](#continue-training) above; they are mutually exclusive and the LoRA shape params (`--rank`, `TARGET_MODULE`, `LORA_ALPHA`, `RSLORA`) are frozen by any loaded adapter.
+
+`DO_EVAL` is off by default (SFT eval OOMs on 16GB VRAM); use `script/eval/loss.py` post-hoc against `valid.jsonl`.
+
+#### Prepare an SFT dataset
+
+Each builder under `script/dataset/sft/` reads raw JSONL from `dataset/raw/<format>/<name>/` and writes an 80/20 split into `dataset/sft/<task>/<name>/{train,valid}.jsonl`:
+
+| Builder | Task | Raw input |
+| --- | --- | --- |
+| `js2jac.py` | `js2jac` | `dataset/raw/jac/Nitin-js2jac/` |
+| `code_complete.py` | `code_completion` | `dataset/raw/jac/Nitin-10k-jac-functions/` |
+| `qa.py` | routes to `qa` / `py2jac` / `code_gen` | `dataset/raw/agent-synth/sft_train.jsonl` |
+
+Edit the config block at the top of the chosen script (`DS_NAME`, filter fields, `VALID_SIZE`, `SEED`, `OUT_FORMAT`) then run e.g.:
+
+```bash
+python script/dataset/sft/js2jac.py
+```
+
+Prompt templates live in `script/dataset/template/prompt_template.json`.
+
 ### Run local inference
 
 Edit the model settings in [`script/inference.py`](script/inference.py):

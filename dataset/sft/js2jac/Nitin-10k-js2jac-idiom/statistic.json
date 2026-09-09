@@ -1,105 +1,42 @@
 {
     "train": {
-        "count": 3693,
+        "count": 2402,
         "length": {
             "unit": "characters",
-            "avg": 2842.14,
-            "median": 1867,
-            "std": 2860.82,
-            "min": 180,
-            "max": 17329
-        },
-        "histogram": {
-            "<=100": 0,
-            "101-200": 1,
-            "201-500": 283,
-            "501-1000": 708,
-            "1001-2000": 980,
-            "2001-5000": 1119,
-            "5001-10000": 461,
-            ">10000": 141
-        },
-        "property": {
-            "format": {
-                "diff": 0,
-                "jac": 3693,
-                "markdown": 0,
-                "repo": 0,
-                "session": 0
-            },
-            "class": {
-                "fullstack": 637,
-                "function": 3054,
-                "graph": 0,
-                "osp": 2
-            },
-            "source": {
-                "agent": 0,
-                "article": 0,
-                "code": 3693,
-                "docs": 0,
-                "other": 0
-            }
-        },
-        "combinations": [
-            {
-                "format": "jac",
-                "class": "fullstack",
-                "source": "code",
-                "count": 637
-            },
-            {
-                "format": "jac",
-                "class": "function",
-                "source": "code",
-                "count": 3054
-            },
-            {
-                "format": "jac",
-                "class": "osp",
-                "source": "code",
-                "count": 2
-            }
-        ]
-    },
-    "valid": {
-        "count": 923,
-        "length": {
-            "unit": "characters",
-            "avg": 2909.93,
-            "median": 1918,
-            "std": 2887.98,
-            "min": 203,
-            "max": 17537
+            "avg": 2719.92,
+            "median": 2019.0,
+            "std": 2342.78,
+            "min": 208,
+            "max": 15218
         },
         "histogram": {
             "<=100": 0,
             "101-200": 0,
-            "201-500": 67,
-            "501-1000": 166,
-            "1001-2000": 248,
-            "2001-5000": 290,
-            "5001-10000": 113,
-            ">10000": 39
+            "201-500": 193,
+            "501-1000": 394,
+            "1001-2000": 605,
+            "2001-5000": 858,
+            "5001-10000": 312,
+            ">10000": 40
         },
         "property": {
             "format": {
                 "diff": 0,
-                "jac": 923,
+                "jac": 2402,
                 "markdown": 0,
                 "repo": 0,
                 "session": 0
             },
             "class": {
-                "fullstack": 168,
-                "function": 754,
+                "fullstack": 1057,
+                "function": 1344,
                 "graph": 0,
                 "osp": 1
             },
             "source": {
                 "agent": 0,
                 "article": 0,
-                "code": 923,
+                "code": 2402,
                 "docs": 0,
                 "other": 0
             }
@@ -109,19 +46,76 @@
                 "format": "jac",
                 "class": "fullstack",
                 "source": "code",
-                "count": 168
+                "count": 1057
             },
             {
                 "format": "jac",
                 "class": "function",
                 "source": "code",
-                "count": 754
+                "count": 1344
             },
             {
                 "format": "jac",
                 "class": "osp",
                 "source": "code",
                 "count": 1
+            }
+        ]
+    },
+    "valid": {
+        "count": 600,
+        "length": {
+            "unit": "characters",
+            "avg": 2826.91,
+            "median": 1872.5,
+            "std": 2537.17,
+            "min": 241,
+            "max": 14972
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 51,
+            "501-1000": 102,
+            "1001-2000": 157,
+            "2001-5000": 188,
+            "5001-10000": 88,
+            ">10000": 14
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 600,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 266,
+                "function": 334,
+                "graph": 0,
+                "osp": 0
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 600,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "jac",
+                "class": "fullstack",
+                "source": "code",
+                "count": 266
+            },
+            {
+                "format": "jac",
+                "class": "function",
+                "source": "code",
+                "count": 334
             }
         ]
     }

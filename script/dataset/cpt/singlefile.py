@@ -63,6 +63,8 @@ def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for split, records in splits.items():
+        if not records:
+            continue
         output_file = Path(f"{out_dir}/{split}.jsonl")
         with output_file.open("w", encoding="utf-8") as out:
             for fp, jac in records:
@@ -85,6 +87,8 @@ def jac2cpt(in_dir=IN_DIR, out_dir=OUT_DIR, format=OUT_FORMAT):
         f"Created {len(splits['train'])} train and "
         f"{len(splits['valid'])} validation samples in {out_dir}"
     )
+    if not splits["valid"]:
+        print("  (VALID_SIZE=0, valid.jsonl skipped — CPT mode)")
 
 
 # Run =====================================================
