@@ -1,0 +1,51 @@
+# Patch training on top of the v1.2 SFT adapter (0909-1-partialproj/sft-all-r32).
+# Adds code_completion/Nitin-9k-py2jac-idiom, which was accidentally left out of
+# the original 8-task SFT set. Adapter shape (r=32, alpha=16, rslora=false,
+# 5 targets) is frozen by the checkpoint's adapter_config.json; the LoRA hparams
+# below are stated for reference only.
+recipe:
+  name: sft-r32-patch9k
+  stage: sft
+  base_model: output/model/JacLLM-CPT-Ornith-9B-v1.2
+  adapter: output/adapter/09-09_17-09-sft-all-r32/checkpoint-1124
+  seed: 3407
+  max_seq_length: 4096
+  load_in_4bit: true
+  text_only: true
+  chat_template: null
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 10
+  lr: 2.0e-4
+  embed_lr: 0
+  optimizer: adamw_8bit
+  scheduler: linear
+  warmup_steps: 10
+  weight_decay: 1.0e-3
+  save_steps: 100
+  do_eval: false
+  # LoRA fields ignored when adapter is set (shape frozen by checkpoint).
+  lora_rank: 32
+  lora_alpha: 16
+  lora_dropout: 0
+  rslora: false
+  bias: none
+  grad_checkpt: unsloth
+  packing: false
+  target_module:
+    - gate_proj
+    - up_proj
+    - q_proj
+    - down_proj
+    - o_proj
+  instruction_part: "<|im_start|>user\n"
+  response_part: "<|im_start|>assistant\n"
+
+mixing:
+  strategy: concat
+
+datasets:
+  - task: code_completion
+    name: Nitin-9k-py2jac-idiom

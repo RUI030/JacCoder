@@ -142,7 +142,11 @@ To see training loss, see
 ```bash 
 tensorboard --logdir path/to/tensorboard
 ```
-under `run` folder in the adapter folder
+under `run` folder in the adapter folder, default path is 
+```bash
+tensorboard --logdir JacCoder/output/adapter/<YOUR_EXPERIMENT_NAME>/runs
+```
+
 
 ### Run SFT training
 

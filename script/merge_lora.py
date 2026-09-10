@@ -10,7 +10,7 @@ Usage:
         --out output/model/<name>
 """
 
-import argparse
+import argparse, json, struct
 from pathlib import Path
 
 from unsloth import FastLanguageModel
@@ -23,6 +23,84 @@ TEXT_ONLY = True                 # unwrap Ornith processor VLM wrapper
 
 MAX_SEQ_LENGTH = 16384
 DTYPE          = None
+
+
+# Functions ===============================================
+def fix_text_only_weight_prefix(out_dir: Path) -> int:
+    """Align Qwen3.5 text-only safetensor keys with its text config."""
+    prefix = "language_model."
+    changed = 0
+
+    for model_file in sorted(out_dir.glob("*.safetensors")):
+        with model_file.open("rb") as file:
+            header_size = struct.unpack("<Q", file.read(8))[0]
+            header = json.loads(file.read(header_size))
+
+        renamed = {}
+        file_changed = 0
+        for name, value in header.items():
+            new_name = name if name == "__metadata__" else name.removeprefix(prefix)
+            if new_name in renamed:
+                raise RuntimeError(f"Duplicate tensor key after prefix repair: {new_name}")
+            renamed[new_name] = value
+            file_changed += new_name != name
+
+        if not file_changed:
+            continue
+        new_header = json.dumps(renamed, separators=(",", ":")).encode("utf-8")
+        if len(new_header) > header_size:
+            raise RuntimeError(f"Repaired header does not fit in {model_file}")
+        new_header += b" " * (header_size - len(new_header))
+        with model_file.open("r+b") as file:
+            file.seek(8)
+            file.write(new_header)
+        changed += file_changed
+
+    index_file = out_dir / "model.safetensors.index.json"
+    if changed and index_file.is_file():
+        index = json.loads(index_file.read_text(encoding="utf-8"))
+        index["weight_map"] = {
+            name.removeprefix(prefix): shard
+            for name, shard in index["weight_map"].items()
+        }
+        index_file.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+
+    return changed
+
+
+def is_local_4bit_base(adapter_path: Path) -> bool:
+    """Return whether this adapter was trained on a local merged 4-bit base."""
+    adapter_cfg = json.loads(
+        (adapter_path / "adapter_config.json").read_text(encoding="utf-8")
+    )
+    base_path = Path(adapter_cfg["base_model_name_or_path"])
+    if not base_path.is_absolute():
+        base_path = PROJECT_ROOT / base_path
+    if not base_path.is_dir():
+        return False
+
+    base_cfg = json.loads((base_path / "config.json").read_text(encoding="utf-8"))
+    quant_cfg = base_cfg.get("quantization_config", {})
+    return (
+        quant_cfg.get("quant_method") == "bitsandbytes"
+        and quant_cfg.get("load_in_4bit") is True
+    )
+
+
+def clear_weight_conversions(model) -> int:
+    """Keep native model keys when resaving a local merged 4-bit base."""
+    cleared = 0
+    seen = set()
+    for module in model.modules():
+        if id(module) in seen:
+            continue
+        seen.add(id(module))
+        conversions = getattr(module, "_weight_conversions", None)
+        if not conversions:
+            continue
+        module._weight_conversions = []
+        cleared += len(conversions)
+    return cleared
 
 # CLI overrides ============================================
 cli = argparse.ArgumentParser(add_help=False)
@@ -91,7 +169,13 @@ else:
     # staging point, so forced is the right choice.
     save_method = "merged_4bit_forced" if Q4BIT else "merged_16bit"
     print(f"Method    : {save_method}")
+    if is_local_4bit_base(adapter_path):
+        cleared = clear_weight_conversions(model)
+        print(f"Local 4-bit base weight conversions cleared: {cleared}")
     model.save_pretrained_merged(str(out_path), tokenizer, save_method=save_method)
+    if TEXT_ONLY:
+        repaired = fix_text_only_weight_prefix(out_path)
+        print(f"Text-only key-prefix repairs: {repaired}")
 
 print(f"\nDone. Merged model at: {out_path}")
 print(f"Check size: du -sh {out_path}")
