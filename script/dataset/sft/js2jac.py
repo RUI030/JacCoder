@@ -8,7 +8,7 @@ from dataset.pipeline import load_prompts, report, split_and_write
 
 # Setting =================================================
 DS_FORMAT    = "jac"
-DS_NAME      = "Nitin-js2jac"
+DS_NAME      = "Nitin-3k-js2jac-idiom"
 SOURCE       = "code"
 TASK_TYPE    = "js2jac"
 JSON_KEYWORD = "jac"                    # JSONL mode: field holding the Jac target

@@ -7,7 +7,7 @@ from utils.model import load_model, generate
 
 # Setting =================================================
 TASK_TYPE     = "code_completion"
-DS_NAME       = "Nitin-10k-jac-functions"
+DS_NAME       = "Nitin-9k-py2jac-idiom"
 SPLIT         = "valid"
 
 BASE_MODEL    = "ornith-ai/Ornith-1.5-9B"

@@ -8,7 +8,7 @@ from dataset.pipeline import load_prompts, report, split_and_write
 
 # Setting =================================================
 DS_FORMAT    = "jac"
-DS_NAME      = "Nitin-10k-jac-functions"
+DS_NAME      = "Nitin-9k-py2jac-idiom"
 SOURCE       = "code"
 TASK_TYPE    = "code_completion"
 JSON_KEYWORD = "jac"                    # JSONL mode: field holding the Jac source

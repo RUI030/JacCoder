@@ -33,9 +33,9 @@ STAGES: list[dict] = [
 
 # Eval slices: name -> path to valid.jsonl (rows are `{"messages": [...]}`).
 SLICES: dict[str, Path] = {
-    "code_completion": DATASET_ROOT / "code_completion" / "Nitin-10k-jac-functions" / "valid.jsonl",
+    "code_completion": DATASET_ROOT / "code_completion" / "Nitin-9k-py2jac-idiom" / "valid.jsonl",
     "code_gen":        DATASET_ROOT / "code_gen" / "opus-synth-v2" / "valid.jsonl",
-    "js2jac":          DATASET_ROOT / "js2jac" / "Nitin-js2jac" / "valid.jsonl",
+    "js2jac":          DATASET_ROOT / "js2jac" / "Nitin-3k-js2jac-idiom" / "valid.jsonl",
     "py2jac":          DATASET_ROOT / "py2jac" / "opus-synth-v2" / "valid.jsonl",
     "qa":              DATASET_ROOT / "qa" / "opus-synth-v2" / "valid.jsonl",
 }

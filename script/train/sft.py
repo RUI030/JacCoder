@@ -26,7 +26,7 @@ def default_config() -> dict:
         "dtype":          None,
         "load_in_4bit":   True,
         "text_only":      True,
-        "chat_template":  "qwen-2.5",  # Ornith is Qwen3-based; qwen-2.5 template is compatible
+        "chat_template":  None,  # preserve the base tokenizer's native template
         # Output
         "run_name":       "",
         "out_dir":        "",
@@ -97,7 +97,12 @@ def run_sft(config: dict, train_ds, eval_ds=None):
         load_in_4bit   = cfg["load_in_4bit"],
         text_only      = cfg["text_only"],
     )
-    tokenizer = get_chat_template(tokenizer, chat_template=cfg["chat_template"])
+    if cfg["chat_template"]:
+        tokenizer = get_chat_template(tokenizer, chat_template=cfg["chat_template"])
+    elif not tokenizer.chat_template:
+        raise ValueError(
+            "The base tokenizer has no chat template; set recipe.chat_template explicitly"
+        )
 
     if not cfg["adapter"]:
         model = FastLanguageModel.get_peft_model(
@@ -201,7 +206,7 @@ def config_from_cli() -> tuple[dict, str, str]:
 
     cfg  = default_config()
     task = args.task    or "code_completion"
-    ds   = args.dataset or "Nitin-10k-jac-functions"
+    ds   = args.dataset or "Nitin-9k-py2jac-idiom"
     cfg["adapter"]     = args.adapter or ""
     cfg["resume_from"] = args.resume  or ""
     if args.epochs    is not None: cfg["epochs"]    = args.epochs

@@ -26,10 +26,10 @@ LIMIT        = 30   # 0 => all valid records
 METRICS      = ["check"]              # ladder: e.g. ["check", "run"]
 
 EVAL_SET = [
-    ("code_completion", "Nitin-10k-jac-functions"),
+    ("code_completion", "Nitin-9k-py2jac-idiom"),
     ("code_gen",        "opus-synth-v2"),
     ("py2jac",          "opus-synth-v2"),
-    ("js2jac",          "Nitin-js2jac"),
+    ("js2jac",          "Nitin-3k-js2jac-idiom"),
     ("osp",             "Nitin-1k-osp"),
 ]
 

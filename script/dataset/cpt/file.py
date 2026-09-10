@@ -8,7 +8,7 @@ from dataset.pipeline import load_prompts, report, split_and_write
 
 # Setting =================================================
 DS_FORMAT    = "jac"                    # or "markdown", "repo", "diff", "session"
-DS_NAME      = "Nitin-js2jac"
+DS_NAME      = "Nitin-9k-py2jac-idiom"
 SOURCE       = "code"                   # "code", "docs", "article", "agent", "other"
 JSON_KEYWORD = "jac"                    # JSONL mode: field holding the Jac source
 FP_KEY       = "id"                     # JSONL mode: field to use as sample id (fp)
