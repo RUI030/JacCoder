@@ -43,6 +43,15 @@ def load_model(
         if not getattr(cfg, "architectures", None):
             cfg.architectures = [arch]
 
+    # If the loaded path was a LoRA adapter, fold it into the base weights so
+    # inference matches merge_lora.py output. Loading Ornith adapters via
+    # unsloth's text-only unwrap otherwise silently mis-attaches PEFT and
+    # returns raw base-model output. Base or already-merged model dirs skip
+    # this branch (no peft_config).
+    if hasattr(model, "peft_config"):
+        print("Merging LoRA into base (in-memory) for inference")
+        model = model.merge_and_unload()
+
     FastLanguageModel.for_inference(model)
     tokenizer.truncation_side = "left"
     return model, tokenizer

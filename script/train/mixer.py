@@ -124,6 +124,16 @@ def mix(items: list[tuple[str, Dataset, float, int]], mixing: dict, seed: int) -
                 parts.append(ds)
         return concatenate_datasets(parts).shuffle(seed=seed)
 
+    if strategy == "sequential":
+        # Preserve recipe order AND in-task file order (no shuffling at all).
+        # Each task runs to completion before the next; rows within a task
+        # are consumed in the order they appear on disk.
+        parts = []
+        for _, ds, _, repeat in items:
+            for _ in range(max(1, repeat)):
+                parts.append(ds)
+        return concatenate_datasets(parts)
+
     if strategy == "interleave":
         datasets = [ds for _, ds, _, _ in items]
         weights  = [w for _, _, w, _ in items]

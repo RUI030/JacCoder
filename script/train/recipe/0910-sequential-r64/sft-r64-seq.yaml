@@ -1,0 +1,69 @@
+# SFT — sequential curriculum probe against the r=64 concat baseline
+# (0909-3-r64/sft-r64). Only variable that changes: mixing strategy
+# concat -> sequential. Dataset order below IS the curriculum — tasks run to
+# completion in listed order, rows within a task shuffled with `seed`.
+# Set `adapter:` to the CPT-sequential checkpoint before running.
+recipe:
+  name: sft-r64-seq
+  stage: sft
+  base_model: ornith-ai/Ornith-1.5-9B
+  adapter: ""              # set to output of cpt-r64-seq before running
+  out_dir: output/adapter/0910-trueseq-r64/sft
+  seed: 3407
+  max_seq_length: 4096
+  load_in_4bit: true
+  text_only: true
+  chat_template: null
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 10
+  lr: 2.0e-4
+  embed_lr: 0
+  optimizer: adamw_8bit
+  scheduler: linear
+  warmup_steps: 10
+  weight_decay: 1.0e-3
+  save_steps: 100
+  eval_steps: 0.1
+  do_eval: false
+  lora_rank: 64
+  lora_alpha: 16
+  lora_dropout: 0
+  rslora: true
+  bias: none
+  grad_checkpt: unsloth
+  packing: false
+  target_module:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  instruction_part: "<|im_start|>user\n"
+  response_part:    "<|im_start|>assistant\n"
+
+mixing:
+  strategy: sequential
+
+# Ordered basic -> advanced. Reorder here to change the curriculum.
+datasets:
+  - task: code_completion
+    name: Nitin-9k-py2jac-idiom
+  - task: py2jac
+    name: opus-synth-v2
+  - task: js2jac
+    name: Nitin-3k-js2jac-idiom
+  - task: osp
+    name: Nitin-1k-osp
+  - task: farm
+    name: Nitin-2k-farm
+  - task: code_gen
+    name: opus-synth-v2
+  - task: scaffold2impl
+    name: Rui-jacapp-scaffold
+  - task: qa
+    name: opus-synth-v2

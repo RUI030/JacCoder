@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 BASE_MODEL   = "ornith-ai/Ornith-1.5-9B"
 ADAPTER_PATH = (
-    PROJECT_ROOT / "output/adapter/08-21_22-58-Ayush-ground-truth/checkpoint-195"
+    PROJECT_ROOT / "output/adapter/0910-trueseq-r64/sft/adapter"
 )
 
 MAX_SEQ_LENGTH = 4096
@@ -24,7 +24,7 @@ LOAD_IN_4BIT   = True
 # Generation settings =========================================================
 
 SYSTEM_PROMPT      = "You are an expert AI assistant specializing in the jac programming language."
-MAX_NEW_TOKENS     = 512
+MAX_NEW_TOKENS     = 131072
 TEMPERATURE        = 0.7
 TOP_P              = 0.9
 REPETITION_PENALTY = 1.05
