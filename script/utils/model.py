@@ -100,3 +100,77 @@ def generate(
     with torch.inference_mode():
         outputs = model.generate(**inputs, **args)
     return tokenizer.decode(outputs[0, prompt_tokens:], skip_special_tokens=True).strip()
+
+
+def generate_batched(
+    model,
+    tokenizer,
+    messages_list,
+    max_new_tokens: int = 1024,
+    temperature: float = 0.0,
+    top_p: float = 0.9,
+    repetition_penalty: float = 1.05,
+    enable_thinking: bool = False,
+) -> list[str]:
+    """Generate one reply per messages list, all in a single batched forward pass.
+
+    Left-pads prompts so autoregressive generation from `input_ids.shape[-1]`
+    still aligns per sample.
+    """
+    if not messages_list:
+        return []
+
+    max_seq = getattr(model.config, "max_position_embeddings", None) or 4096
+    prompt_limit = max_seq - max_new_tokens
+    if prompt_limit <= 0:
+        raise ValueError("max_new_tokens must be smaller than model max seq")
+
+    prompt_ids = [
+        tokenizer.apply_chat_template(
+            m,
+            tokenize=True,
+            add_generation_prompt=True,
+            enable_thinking=enable_thinking,
+            truncation=True,
+            max_length=prompt_limit,
+        )
+        for m in messages_list
+    ]
+
+    pad_id = tokenizer.pad_token_id
+    if pad_id is None:
+        pad_id = tokenizer.eos_token_id
+
+    prev_side = tokenizer.padding_side
+    tokenizer.padding_side = "left"
+    try:
+        batch = tokenizer.pad(
+            {"input_ids": prompt_ids},
+            padding=True,
+            return_tensors="pt",
+        )
+    finally:
+        tokenizer.padding_side = prev_side
+
+    batch = {k: v.to("cuda") for k, v in batch.items()}
+
+    args = {
+        "max_new_tokens": max_new_tokens,
+        "max_length": None,
+        "use_cache": True,
+        "repetition_penalty": repetition_penalty,
+        "pad_token_id": pad_id,
+    }
+    if temperature > 0:
+        args.update(do_sample=True, temperature=temperature, top_p=top_p)
+    else:
+        args["do_sample"] = False
+
+    padded_prompt_len = batch["input_ids"].shape[-1]
+    with torch.inference_mode():
+        outputs = model.generate(**batch, **args)
+    completions = outputs[:, padded_prompt_len:]
+    return [
+        tokenizer.decode(seq, skip_special_tokens=True).strip()
+        for seq in completions
+    ]

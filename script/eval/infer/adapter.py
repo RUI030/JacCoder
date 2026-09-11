@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime
 
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-from utils.model import load_model, generate
+from utils.model import load_model, generate_batched
 
 # Setting =================================================
 TASK_TYPE     = "code_completion"
@@ -20,6 +20,7 @@ TEMPERATURE        = 0.0
 TOP_P              = 0.9
 REPETITION_PENALTY = 1.05
 ENABLE_THINKING    = False
+BATCH_SIZE         = 4    # eval-time batched generation; higher = faster but more VRAM
 
 LIMIT = 5  # 0 => all records
 
@@ -59,37 +60,52 @@ def generate_predictions(model, tokenizer, in_file, out_file, limit=0):
         raise FileNotFoundError(f"Input split not found: {in_path}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    def flush_batch(batch, dst):
+        if not batch:
+            return 0
+        replies = generate_batched(
+            model, tokenizer, [b["messages"] for b in batch],
+            max_new_tokens=MAX_NEW_TOKENS,
+            temperature=TEMPERATURE,
+            top_p=TOP_P,
+            repetition_penalty=REPETITION_PENALTY,
+            enable_thinking=ENABLE_THINKING,
+        )
+        for entry, reply in zip(batch, replies):
+            out = {
+                "id": entry["idx"],
+                "prediction": reply,
+                "reference": entry["reference"],
+                "meta": entry["meta"],
+            }
+            json.dump(out, dst, ensure_ascii=False)
+            dst.write("\n")
+        dst.flush()
+        return len(batch)
+
     n = 0
+    pending: list[dict] = []
     with in_path.open("r", encoding="utf-8") as src, \
          out_path.open("w", encoding="utf-8") as dst:
         for idx, line in enumerate(src):
-            if limit and n >= limit:
+            if limit and n + len(pending) >= limit:
                 break
             rec = json.loads(line)
-            messages = [m for m in rec["messages"] if m["role"] != "assistant"]
-            reply = generate(
-                model, tokenizer, messages,
-                max_new_tokens=MAX_NEW_TOKENS,
-                temperature=TEMPERATURE,
-                top_p=TOP_P,
-                repetition_penalty=REPETITION_PENALTY,
-                enable_thinking=ENABLE_THINKING,
-            )
-            out = {
-                "id": idx,
-                "prediction": reply,
+            pending.append({
+                "idx": idx,
+                "messages": [m for m in rec["messages"] if m["role"] != "assistant"],
                 "reference": next(
                     (m["content"] for m in rec["messages"] if m["role"] == "assistant"),
                     "",
                 ),
                 "meta": rec.get("meta", {}),
-            }
-            json.dump(out, dst, ensure_ascii=False)
-            dst.write("\n")
-            dst.flush()
-            n += 1
-            if n % 20 == 0:
-                print(f"  {n} records")
+            })
+            if len(pending) >= BATCH_SIZE:
+                n += flush_batch(pending, dst)
+                pending.clear()
+                if n % 20 == 0:
+                    print(f"  {n} records")
+        n += flush_batch(pending, dst)
 
     print(f"Wrote {n} predictions to {out_path}")
 
