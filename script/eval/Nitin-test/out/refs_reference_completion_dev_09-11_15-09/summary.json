@@ -1,0 +1,161 @@
+{
+  "configuration": {
+    "jac_tmp": null,
+    "k": [
+      1
+    ],
+    "problems_sha256": "3ae11bde55cb20bf75664a7070f60cd6ff8f2bec5767a7cdee5841ebe0d87aa3",
+    "samples_sha256": "69fa2d11b508253e8599784a3eb68e82808b17f8693fc079532a2acf60b96844",
+    "timeout_s": 120.0,
+    "workers": 4
+  },
+  "created_at": "2026-09-11T20:11:57.032128+00:00",
+  "elapsed_s": 3775.284,
+  "jac_version": "jac 0.36.0  (Linux x86_64)",
+  "notes": [
+    "task_success requires hidden tests and any declared feature contract",
+    "compile-only samples do not contribute to task_success or pass@k",
+    "feature presence and reference similarity are diagnostics, not idiomaticity scores"
+  ],
+  "overall": {
+    "behavior_test_rate": 0.25,
+    "check_rate": 0.995,
+    "compile_only_samples": 0,
+    "complete": false,
+    "contract_rate": 1.0,
+    "feature_presence_samples": {
+      "obj": 1,
+      "report": 1,
+      "spawn": 1,
+      "typed_def": 200
+    },
+    "infra_errors": 20,
+    "pass_at_k": {
+      "1": {
+        "eligible_problems": 180,
+        "value": 0.25
+      }
+    },
+    "problems": 200,
+    "samples": 200,
+    "static_diagnostics": {
+      "feature_rates": {
+        "ability_entry": 0.0,
+        "disengage": 0.0,
+        "edge": 0.0,
+        "graph_connect": 0.0,
+        "graph_reference": 0.0,
+        "no_dynamic_types": 0.935,
+        "no_import_py": 1.0,
+        "no_python_syntax": 1.0,
+        "no_test_blocks": 1.0,
+        "node": 0.0,
+        "obj": 0.005,
+        "report": 0.005,
+        "spawn": 0.005,
+        "typed_def": 1.0,
+        "typed_has": 0.0,
+        "visit": 0.0,
+        "walker": 0.0
+      },
+      "note": "reported independently; no aggregate idiomaticity score",
+      "readability_diagnostics": {
+        "mean_line_length": 36.13059,
+        "mean_long_lines_over_100": 0.215,
+        "mean_max_brace_depth": 1.875,
+        "mean_source_lines": 10.935
+      },
+      "transpiler_residue": {
+        "mean_range_len_loops": 0.035,
+        "no_embedded_test_blocks_rate": 1.0,
+        "no_import_py_rate": 1.0,
+        "no_python_syntax_rate": 1.0
+      },
+      "typing": {
+        "mean_dynamic_type_mentions": 0.145,
+        "no_dynamic_types_rate": 0.935,
+        "typed_def_rate": 1.0
+      }
+    },
+    "status_counts": {
+      "check_fail": 1,
+      "infra_error": 20,
+      "pass": 45,
+      "test_fail": 29,
+      "timeout": 105
+    },
+    "task_success_rate": 0.25
+  },
+  "schema_version": 1,
+  "tracks": {
+    "function": {
+      "behavior_test_rate": 0.25,
+      "check_rate": 0.995,
+      "compile_only_samples": 0,
+      "complete": false,
+      "contract_rate": 1.0,
+      "feature_presence_samples": {
+        "obj": 1,
+        "report": 1,
+        "spawn": 1,
+        "typed_def": 200
+      },
+      "infra_errors": 20,
+      "pass_at_k": {
+        "1": {
+          "eligible_problems": 180,
+          "value": 0.25
+        }
+      },
+      "problems": 200,
+      "samples": 200,
+      "static_diagnostics": {
+        "feature_rates": {
+          "ability_entry": 0.0,
+          "disengage": 0.0,
+          "edge": 0.0,
+          "graph_connect": 0.0,
+          "graph_reference": 0.0,
+          "no_dynamic_types": 0.935,
+          "no_import_py": 1.0,
+          "no_python_syntax": 1.0,
+          "no_test_blocks": 1.0,
+          "node": 0.0,
+          "obj": 0.005,
+          "report": 0.005,
+          "spawn": 0.005,
+          "typed_def": 1.0,
+          "typed_has": 0.0,
+          "visit": 0.0,
+          "walker": 0.0
+        },
+        "note": "reported independently; no aggregate idiomaticity score",
+        "readability_diagnostics": {
+          "mean_line_length": 36.13059,
+          "mean_long_lines_over_100": 0.215,
+          "mean_max_brace_depth": 1.875,
+          "mean_source_lines": 10.935
+        },
+        "transpiler_residue": {
+          "mean_range_len_loops": 0.035,
+          "no_embedded_test_blocks_rate": 1.0,
+          "no_import_py_rate": 1.0,
+          "no_python_syntax_rate": 1.0
+        },
+        "typing": {
+          "mean_dynamic_type_mentions": 0.145,
+          "no_dynamic_types_rate": 0.935,
+          "typed_def_rate": 1.0
+        }
+      },
+      "status_counts": {
+        "check_fail": 1,
+        "infra_error": 20,
+        "pass": 45,
+        "test_fail": 29,
+        "timeout": 105
+      },
+      "task_success_rate": 0.25
+    }
+  }
+}
