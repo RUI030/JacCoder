@@ -116,6 +116,8 @@ def main():
                           "typically wash_refs.py's refs_ok.txt")
     cli.add_argument("--k", default="1", help="pass@k values, comma-separated")
     cli.add_argument("--workers", type=int, default=2, help="grader workers")
+    cli.add_argument("--timeout", type=float, default=300.0,
+                     help="per-stage seconds; grader default is 120")
     args = cli.parse_args()
 
     public_fp  = _HERE / "data" / "function" / "v1" / "public"  / f"{args.split}.jsonl"
@@ -152,6 +154,7 @@ def main():
             "--out-dir",  str(out_dir),
             "--k",        args.k,
             "--workers",  str(args.workers),
+            "--timeout",  str(args.timeout),
         ],
         check=True,
     )

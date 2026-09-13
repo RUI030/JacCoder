@@ -60,6 +60,10 @@ def main():
                      default="reference_completion",
                      help="which private field to feed back as the sample")
     cli.add_argument("--workers", type=int, default=4)
+    cli.add_argument("--timeout", type=float, default=300.0,
+                     help="per-stage seconds; grader default is 120")
+    cli.add_argument("--limit", type=int, default=0,
+                     help="stop after N problems (0 = all)")
     args = cli.parse_args()
 
     private_fp = _HERE / "data" / "function" / "v1" / "private" / f"{args.split}.jsonl"
@@ -74,6 +78,8 @@ def main():
     print(f"Field   : {args.field}")
 
     samples = build_samples(problems, args.field)
+    if args.limit:
+        samples = samples[:args.limit]
     write_jsonl(samples_fp, samples)
     print(f"Wrote   : {samples_fp}  ({len(samples)} samples)")
 
@@ -88,6 +94,7 @@ def main():
             "--out-dir",  str(out_dir),
             "--k",        "1",
             "--workers",  str(args.workers),
+            "--timeout",  str(args.timeout),
         ],
     ).returncode
     if rc:
