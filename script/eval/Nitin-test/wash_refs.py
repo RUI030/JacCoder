@@ -83,22 +83,21 @@ def main():
     write_jsonl(samples_fp, samples)
     print(f"Wrote   : {samples_fp}  ({len(samples)} samples)")
 
-    print("\nGrading references…")
-    # Grader exits non-zero (2) whenever ANY sample is infra_error/timeout — we
-    # want the results.jsonl regardless, so don't crash on exit != 0.
+    print("\nGrading references via grade_stream (chunked + 32G cgroup)…")
+    grade_stream = _HERE / "graders" / "grade_stream.py"
     rc = subprocess.run(
         [
-            sys.executable, str(grader),
-            "--problems", str(private_fp),
-            "--samples",  str(samples_fp),
-            "--out-dir",  str(out_dir),
-            "--k",        "1",
-            "--workers",  str(args.workers),
-            "--timeout",  str(args.timeout),
+            sys.executable, str(grade_stream),
+            "--problems",   str(private_fp),
+            "--samples",    str(samples_fp),
+            "--out-dir",    str(out_dir),
+            "--chunk-size", "20",
+            "--k",          "1",
+            "--timeout",    str(args.timeout),
         ],
     ).returncode
     if rc:
-        print(f"(grader exited {rc} — non-fatal, keep-going)")
+        print(f"(grade_stream exited {rc} — non-fatal, keep-going)")
 
     results_fp = out_dir / "results.jsonl"
     ok, broken = summarize_status(results_fp)
