@@ -1,4 +1,4 @@
-"""Interactive multi-turn inference for the Ornith CPT adapter."""
+"""Interactive multi-turn inference for the Ornith SFT model."""
 
 import sys
 from pathlib import Path
@@ -11,10 +11,10 @@ from utils.model import load_model, generate
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-BASE_MODEL   = "ornith-ai/Ornith-1.5-9B"
-ADAPTER_PATH = (
-    PROJECT_ROOT / "output/adapter/0910-trueseq-r64/sft/adapter"
-)
+BASE_MODEL = "ornith-ai/Ornith-1.5-9B"
+MODEL_PATH = (
+    PROJECT_ROOT / "../output/model/JacLLM-SFT-Ornith-9B-v1.2"
+).resolve()
 
 MAX_SEQ_LENGTH = 4096
 DTYPE          = None
@@ -24,7 +24,7 @@ LOAD_IN_4BIT   = True
 # Generation settings =========================================================
 
 SYSTEM_PROMPT      = "You are an expert AI assistant specializing in the jac programming language."
-MAX_NEW_TOKENS     = 131072
+MAX_NEW_TOKENS     = 2048
 TEMPERATURE        = 0.7
 TOP_P              = 0.9
 REPETITION_PENALTY = 1.05
@@ -32,11 +32,13 @@ ENABLE_THINKING    = False
 
 
 def resolve_model_name() -> str:
-    """Prefer local adapter when its config exists, else base model."""
-    if (ADAPTER_PATH / "adapter_config.json").is_file():
-        print(f"Loading adapter: {ADAPTER_PATH}")
-        return str(ADAPTER_PATH)
-    print(f"Adapter not found at {ADAPTER_PATH}")
+    """Prefer a local merged model or adapter dir when present, else the
+    base model on the HF hub."""
+    if (MODEL_PATH / "config.json").is_file() or \
+       (MODEL_PATH / "adapter_config.json").is_file():
+        print(f"Loading local: {MODEL_PATH}")
+        return str(MODEL_PATH)
+    print(f"Local model not found at {MODEL_PATH}; falling back to base")
     return BASE_MODEL
 
 
