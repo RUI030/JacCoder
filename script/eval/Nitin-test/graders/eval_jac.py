@@ -275,6 +275,22 @@ def reference_diagnostics(problem: dict[str, Any], source: str) -> dict[str, Any
     return result
 
 
+# --- JacCoder patch: parse pytest per-test pass/fail from `jac test` stdout ---
+# Kept minimal so upstream refresh from jac-data-gen re-applies cleanly.
+# `jac 0.36.0` runs pytest under the hood; latest main is a custom runner and
+# will need a different parser (see PROVENANCE.md).
+_TEST_NAME_RE = __import__("re").compile(r'^\s*test\s+"([^"]+)"\s*\{', __import__("re").MULTILINE)
+_PYTEST_FAILED_RE = __import__("re").compile(r"^FAILED\s+\S+::(\S+)", __import__("re").MULTILINE)
+
+
+def parse_pytest_pertest(stdout: str, hidden_tests: str) -> list[dict]:
+    """Given jac test stdout and the raw test_blocks string, return
+    [{"name": "t0", "passed": bool}, ...] in declaration order."""
+    all_names = _TEST_NAME_RE.findall(hidden_tests or "")
+    failed = {m.split(" ")[0] for m in _PYTEST_FAILED_RE.findall(stdout or "")}
+    return [{"name": n, "passed": n not in failed} for n in all_names]
+
+
 def run_process(
     command: list[str], cwd: Path, timeout_s: float, env: dict[str, str]
 ) -> ProcessResult:
@@ -447,6 +463,8 @@ def grade_one(
         tested = run_process([jac_bin, "test", str(guard_file)], cwd, timeout_s, env)
         row["test_executed"] = True
         row["test_ms"] = round(tested.elapsed_ms, 1)
+        # JacCoder patch: per-test results (pytest 0.36.0 output). See PROVENANCE.md.
+        row["per_test"] = parse_pytest_pertest(tested.stdout, hidden_tests)
         if tested.launch_error:
             set_infra_error(row, stage="test", error=tested.launch_error)
             return index, row
