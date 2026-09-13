@@ -64,6 +64,10 @@ def main():
                      help="per-stage seconds; grader default is 120")
     cli.add_argument("--limit", type=int, default=0,
                      help="stop after N problems (0 = all)")
+    cli.add_argument("--only-task", choices=("completion", "translation"), default=None,
+                     help="restrict to problems whose `task` field matches; "
+                          "use to avoid regrading completion tasks under "
+                          "--field idiomatic_jac (they carry both fields)")
     args = cli.parse_args()
 
     private_fp = _HERE / "data" / "function" / "v1" / "private" / f"{args.split}.jsonl"
@@ -76,6 +80,11 @@ def main():
     problems = read_jsonl(private_fp)
     print(f"Problems: {len(problems)}  (private/{args.split}.jsonl)")
     print(f"Field   : {args.field}")
+
+    if args.only_task:
+        before = len(problems)
+        problems = [p for p in problems if p.get("task") == args.only_task]
+        print(f"Only-task {args.only_task}: {before} → {len(problems)}")
 
     samples = build_samples(problems, args.field)
     if args.limit:
