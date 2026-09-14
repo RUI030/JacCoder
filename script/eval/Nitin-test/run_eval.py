@@ -122,7 +122,7 @@ def main():
 
     public_fp  = _HERE / "data" / "function" / "v1" / "public"  / f"{args.split}.jsonl"
     private_fp = _HERE / "data" / "function" / "v1" / "private" / f"{args.split}.jsonl"
-    grader     = _HERE / "graders" / "eval_jac.py"
+    grade_stream = _HERE / "graders" / "grade_stream.py"
 
     tag  = Path(args.adapter).parent.name if args.adapter else "base"
     stamp = datetime.now().strftime("%m-%d_%H-%M")
@@ -145,19 +145,20 @@ def main():
     write_jsonl(samples_fp, samples)
     print(f"Wrote {len(samples)} samples → {samples_fp}")
 
-    print("\nGrading…")
-    subprocess.run(
+    print("\nGrading via grade_stream (chunked + 32G cgroup)…")
+    rc = subprocess.run(
         [
-            sys.executable, str(grader),
-            "--problems", str(private_fp),
-            "--samples",  str(samples_fp),
-            "--out-dir",  str(out_dir),
-            "--k",        args.k,
-            "--workers",  str(args.workers),
-            "--timeout",  str(args.timeout),
+            sys.executable, str(grade_stream),
+            "--problems",   str(private_fp),
+            "--samples",    str(samples_fp),
+            "--out-dir",    str(out_dir),
+            "--chunk-size", "20",
+            "--k",          args.k,
+            "--timeout",    str(args.timeout),
         ],
-        check=True,
-    )
+    ).returncode
+    if rc:
+        print(f"(grade_stream exited {rc} — non-fatal, keep-going)")
     print(f"\nSummary: {out_dir / 'summary.json'}")
 
 

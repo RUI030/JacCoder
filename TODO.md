@@ -15,3 +15,9 @@
     - [ ] check continue training works
 - [ ] markdown collecting and preproc
 - [ ] slide: current situation, bottleneck, plan, resource required
+- [ ] Establish LLM-as-judge standard for semantic failure-mode categorization
+    - [ ] Rubric file — fixed category list with definitions + 1-2 examples each
+    - [ ] Per-case prompt template (in: prefix/python/reference/completion/failing-test names; out: JSON `{category, secondary, one_line_reason}`)
+    - [ ] `llm_judge.py` driver — loops failed cases, calls judge model (Claude API or byllm), writes `judge.jsonl` + aggregate counts
+    - [ ] Dual-judge agreement check on a small sample to measure rubric stability
+    - [ ] Seed rubric from the ad-hoc subagent run on `sft_test_09-13_17-28`

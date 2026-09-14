@@ -60,6 +60,7 @@ import json
 import math
 import os
 import re
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -291,10 +292,38 @@ def parse_pytest_pertest(stdout: str, hidden_tests: str) -> list[dict]:
     return [{"name": n, "passed": n not in failed} for n in all_names]
 
 
+_SYSTEMD_RUN = shutil.which("systemd-run")
+
+
+def _wrap_with_cgroup(command: list[str], mem_limit_bytes: int) -> list[str]:
+    """Wrap a command in its own transient systemd user scope with MemoryMax.
+
+    RLIMIT_AS only caps a single process's address space; a `jac test` that
+    forks N workers (embedded postgres, jaclang workers) then gets N × cap.
+    A per-test cgroup covers the entire process tree, so a runaway sample is
+    OOM-killed inside its own scope and everything else keeps running.
+    """
+    if not _SYSTEMD_RUN or mem_limit_bytes <= 0:
+        return command
+    gb = mem_limit_bytes / (1 << 30)
+    high = int(mem_limit_bytes * 0.9)
+    return [
+        _SYSTEMD_RUN, "--user", "--scope", "--quiet", "--collect",
+        "--property", f"MemoryMax={mem_limit_bytes}",
+        "--property", f"MemoryHigh={high}",
+        "--property", "MemorySwapMax=0",  # no swap, otherwise cap is soft
+        "--property", "OOMPolicy=kill",   # kill the whole scope on OOM
+        *command,
+    ]
+
+
 def run_process(
-    command: list[str], cwd: Path, timeout_s: float, env: dict[str, str]
+    command: list[str], cwd: Path, timeout_s: float, env: dict[str, str],
+    mem_limit_bytes: int | None = None,
 ) -> ProcessResult:
     start = time.perf_counter()
+    if mem_limit_bytes:
+        command = _wrap_with_cgroup(command, mem_limit_bytes)
     try:
         process = subprocess.Popen(
             command,
@@ -373,6 +402,7 @@ def grade_one(
     timeout_s: float,
     tmp_root: Path | None,
     jac_tmp: Path | None,
+    per_test_mem_bytes: int | None = None,
 ) -> tuple[int, dict[str, Any]]:
     problem_id = str(problem["id"])
     sample_id = sample.get("sample_id", index)
@@ -460,7 +490,10 @@ def grade_one(
         guard_file.write_text(
             source.rstrip() + "\n\n" + hidden_tests.rstrip() + "\n", encoding="utf-8"
         )
-        tested = run_process([jac_bin, "test", str(guard_file)], cwd, timeout_s, env)
+        tested = run_process(
+            [jac_bin, "test", str(guard_file)], cwd, timeout_s, env,
+            mem_limit_bytes=per_test_mem_bytes,
+        )
         row["test_executed"] = True
         row["test_ms"] = round(tested.elapsed_ms, 1)
         # JacCoder patch: per-test results (pytest 0.36.0 output). See PROVENANCE.md.
@@ -471,14 +504,25 @@ def grade_one(
         if tested.timed_out:
             row.update(status="timeout", stage="test", test_pass=False, error=concise_output(tested))
             return index, row
-        if tested.returncode is None or tested.returncode < 0:
+        if tested.returncode is None or tested.returncode < 0 or tested.returncode in (137, 139):
+            # A per-test memory cap trip surfaces as either a direct signal
+            # (returncode < 0, e.g. -9/-11) on the jac child, or as 137/139
+            # when systemd-run reports its OOM-killed scope payload. Classify
+            # either as test_fail (WA) so a runaway sample counts against the
+            # submission, not the tool.
+            mem_killed = (
+                per_test_mem_bytes is not None
+                and tested.returncode in (-9, -11, 137, 139)
+            )
             row.update(
-                status="tool_crash",
+                status="test_fail" if mem_killed else "tool_crash",
                 stage="test",
                 test_pass=False,
                 returncode=tested.returncode,
-                error=concise_output(tested),
+                error=concise_output(tested) or ("killed by memory cap" if mem_killed else ""),
             )
+            if mem_killed:
+                row["fail_reason"] = "memory_cap"
             return index, row
         if tested.returncode != 0:
             if is_infra_failure(tested):
@@ -678,6 +722,12 @@ def main() -> int:
         type=Path,
         help="optional shared Jac runtime TMPDIR; default inherits the environment",
     )
+    parser.add_argument(
+        "--per-test-mem-gb",
+        type=float, default=12.0,
+        help="RLIMIT_AS cap (GB) on each `jac test` child; runaways are killed "
+             "by the kernel and land as test_fail (WA). 0 disables the cap.",
+    )
     args = parser.parse_args()
 
     if args.timeout <= 0:
@@ -708,6 +758,10 @@ def main() -> int:
                 timeout_s=args.timeout,
                 tmp_root=args.tmp_root,
                 jac_tmp=jac_tmp,
+                per_test_mem_bytes=(
+                    int(args.per_test_mem_gb * (1 << 30))
+                    if args.per_test_mem_gb > 0 else None
+                ),
             ): index
             for index, sample in enumerate(samples)
         }
