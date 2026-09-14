@@ -99,6 +99,68 @@ def merge_results(chunk_dirs: list[Path], out_dir: Path) -> None:
     print(f"status_counts: {dict(status_counts)}")
 
 
+_JAC_PG_ROOT  = Path.home() / ".cache" / "jac" / "pg"
+_JAC_PG_CACHE = _JAC_PG_ROOT / "main"
+
+
+def _pg_ctl_bin() -> Path | None:
+    """Locate jac's bundled pg_ctl under ~/.cache/jac/pg/dist/<platform>/bin."""
+    dist = _JAC_PG_ROOT / "dist"
+    if not dist.is_dir():
+        return None
+    for plat_dir in dist.iterdir():
+        candidate = plat_dir / "bin" / "pg_ctl"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def purge_jac_pg_cache() -> None:
+    """Wipe jac's embedded-postgres data dir between grader chunks.
+
+    Each `jac test` invocation reseeds an empty database from `pg/dist`
+    if `pg/main` is absent, so deletion is safe. Without this, `main/`
+    grew to 1.1 TB across ~360 samples on a prior run.
+
+    We first `pg_ctl stop` (fast mode) if a postmaster is up, else the
+    rmtree would corrupt an in-flight database. The next chunk will
+    re-spawn postgres cleanly.
+    """
+    if not _JAC_PG_CACHE.exists():
+        return
+    pid_file = _JAC_PG_CACHE / "postmaster.pid"
+    if pid_file.is_file():
+        pg_ctl = _pg_ctl_bin()
+        if pg_ctl is None:
+            print(f"[pg-purge] SKIP: postmaster.pid present, pg_ctl not found")
+            return
+        rc = subprocess.run(
+            [str(pg_ctl), "-D", str(_JAC_PG_CACHE), "-m", "fast",
+             "-w", "-t", "20", "stop"],
+            capture_output=True, text=True,
+        ).returncode
+        if rc != 0 or pid_file.exists():
+            # Fall back to SIGTERM on the postmaster PID.
+            try:
+                pid = int(pid_file.read_text().splitlines()[0].strip())
+                os.kill(pid, 15)
+                for _ in range(20):
+                    if not pid_file.exists():
+                        break
+                    subprocess.run(["sleep", "0.5"])
+            except (OSError, ValueError) as e:
+                print(f"[pg-purge] SKIP: could not stop postgres ({e})")
+                return
+        if pid_file.exists():
+            print(f"[pg-purge] SKIP: postmaster.pid still present after stop")
+            return
+    try:
+        shutil.rmtree(_JAC_PG_CACHE)
+        print(f"[pg-purge] wiped {_JAC_PG_CACHE}")
+    except OSError as e:
+        print(f"[pg-purge] failed: {e}")
+
+
 _SENTINEL_ENV = "NITIN_UNDER_SYSTEMD_SCOPE"
 
 
@@ -191,9 +253,13 @@ def main():
         cd = chunks_root / chunk_dirname(i)
         chunk_dirs.append(cd)
         done_marker = cd / "results.jsonl"
-        if done_marker.is_file():
+        if done_marker.is_file() and done_marker.stat().st_size > 0:
             print(f"[skip] chunk {i:03d} already done  ({done_marker})")
             continue
+        # Purge jac's embedded-postgres data dir between chunks so a
+        # long run cannot balloon it to fill the disk (~50 MB per test
+        # blocks × thousands of samples = full nvme).
+        purge_jac_pg_cache()
         print(f"[run ] chunk {i:03d}  {len(chunk)} samples  → {cd}", flush=True)
         run_chunk(args.grader, args.problems, cd, chunk, args.k, args.timeout)
 
