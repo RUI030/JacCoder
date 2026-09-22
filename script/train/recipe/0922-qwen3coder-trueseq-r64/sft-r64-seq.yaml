@@ -1,6 +1,7 @@
 # Qwen3-Coder-30B-A3B port of 0910-sequential-r64/sft-r64-seq.yaml: same hyperparams,
 # new base model + out_dir, save_total_limit added. Smoke-tested via
 # dev/smoke_*_qwen3coder.yaml on RTX PRO 6000 (96GB), 4-bit.
+# Packed SFT: packing true + grad_acc 1 (~80 min vs ~6.5 h unpacked on this GPU).
 # SFT — sequential curriculum probe against the r=64 concat baseline
 # (0909-3-r64/sft-r64). Only variable that changes: mixing strategy
 # concat -> sequential. Dataset order below IS the curriculum — tasks run to
@@ -20,7 +21,7 @@ recipe:
 hyperparams:
   epochs: 1
   batch_size: 1
-  grad_acc: 10
+  grad_acc: 1                   # packed: ~10 samples per 4096-token sequence, ~= unpacked grad_acc 10
   lr: 2.0e-4
   embed_lr: 0
   optimizer: adamw_8bit
@@ -37,7 +38,7 @@ hyperparams:
   rslora: true
   bias: none
   grad_checkpt: unsloth
-  packing: false
+  packing: true                 # per-conversation labels built before packing (sft.py)
   target_module:
     - q_proj
     - k_proj
