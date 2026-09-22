@@ -66,7 +66,7 @@ def default_config() -> dict:
         "grad_checkpt":   "unsloth",
         # Misc
         "seed":           3407,
-        "packing":        False,  # keep False unless response-mask is confirmed correct
+        "packing":        False,  # True: response mask is built per conversation before packing
         # Response-only masking (chat template dependent)
         "instruction_part": "<|im_start|>user\n",
         "response_part":    "<|im_start|>assistant\n",
@@ -80,6 +80,36 @@ def apply_chat_template(batch: dict, tokenizer) -> dict:
             for msgs in batch["messages"]
         ]
     }
+
+
+def tokenize_with_assistant_mask(msgs: list[dict], tokenizer, max_len: int) -> dict:
+    """Tokenize one conversation; `labels` keep only each assistant turn's tokens.
+
+    Packing needs the mask per conversation: train_on_responses_only runs on the
+    packed sequence and unmasks from an assistant marker to the next user marker,
+    which then spans the following conversation's system prompt. The masked span is
+    what the template renders for the turn (content + <|im_end|>\\n), i.e. the same
+    tokens the unpacked path trains on.
+    """
+    render = lambda m, gen: tokenizer.apply_chat_template(
+        m, tokenize=False, add_generation_prompt=gen
+    )
+    text  = render(msgs, False)
+    spans = []
+    for i, m in enumerate(msgs):
+        if m["role"] != "assistant":
+            continue
+        start, end = len(render(msgs[:i], True)), len(render(msgs[: i + 1], False))
+        if not text.startswith(render(msgs[: i + 1], False)):
+            raise ValueError("Chat template renders history differently from the full "
+                             "conversation; per-turn assistant spans would be misaligned")
+        spans.append((start, end))
+
+    enc    = tokenizer(text, add_special_tokens=False, return_offsets_mapping=True)
+    ids    = enc["input_ids"][:max_len]
+    labels = [t if any(s <= a < e for s, e in spans) else -100
+              for t, (a, _) in zip(ids, enc["offset_mapping"])]
+    return {"input_ids": ids, "labels": labels}
 
 
 def run_sft(config: dict, train_ds, eval_ds=None):
@@ -120,17 +150,23 @@ def run_sft(config: dict, train_ds, eval_ds=None):
             loftq_config               = None,
         )
 
-    train_ds = train_ds.map(
-        lambda b: apply_chat_template(b, tokenizer),
-        batched=True, desc="Applying chat template (train)",
-    )
-    if eval_ds is not None and cfg["do_eval"]:
-        eval_ds = eval_ds.map(
-            lambda b: apply_chat_template(b, tokenizer),
-            batched=True, desc="Applying chat template (valid)",
-        )
+    if cfg["packing"]:
+        # Pre-tokenized input_ids + labels: Unsloth skips its own tokenizing and
+        # packs both columns together (an assistant_masks column would be dropped
+        # by Unsloth's column selection). Rows truncated down to no assistant
+        # tokens are dropped.
+        prep = lambda ds, split: ds.map(
+            lambda r: tokenize_with_assistant_mask(r["messages"], tokenizer, cfg["max_seq_length"]),
+            remove_columns=ds.column_names, desc=f"Tokenizing + assistant mask ({split})",
+        ).filter(lambda r: any(l != -100 for l in r["labels"]),
+                 desc=f"Dropping rows with no assistant tokens ({split})")
     else:
-        eval_ds = None
+        prep = lambda ds, split: ds.map(
+            lambda b: apply_chat_template(b, tokenizer),
+            batched=True, desc=f"Applying chat template ({split})",
+        )
+    train_ds = prep(train_ds, "train")
+    eval_ds  = prep(eval_ds, "valid") if eval_ds is not None and cfg["do_eval"] else None
 
     training_args = UnslothTrainingArguments(
         per_device_train_batch_size = cfg["batch_size"],
@@ -178,12 +214,14 @@ def run_sft(config: dict, train_ds, eval_ds=None):
         args               = training_args,
     )
 
-    # Loss only on assistant tokens (mask system + user)
-    trainer = train_on_responses_only(
-        trainer,
-        instruction_part = cfg["instruction_part"],
-        response_part    = cfg["response_part"],
-    )
+    # Loss only on assistant tokens (mask system + user). Packed runs already
+    # carry labels from tokenize_with_assistant_mask.
+    if not cfg["packing"]:
+        trainer = train_on_responses_only(
+            trainer,
+            instruction_part = cfg["instruction_part"],
+            response_part    = cfg["response_part"],
+        )
 
     print_gpu_banner()
     trainer.train(resume_from_checkpoint=cfg["resume_from"] or None)
