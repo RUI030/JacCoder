@@ -58,6 +58,10 @@ and the current step. The final `adapter/` directory contains model weights
 for inference or a fresh training stage; it is not a resumable Trainer
 checkpoint.
 
+Checkpoints are large (a rank-64 LoRA on Qwen3-Coder-30B-A3B is ~15GB each).
+Set `hyperparams.save_total_limit: N` to keep only the N newest
+`checkpoint-*/` directories; the default keeps all of them.
+
 List the checkpoints for a run:
 
 ```bash
@@ -152,6 +156,12 @@ weighting). Every row is seen once per epoch × repeat.
 `weight` (normalized to a probability). Small datasets loop when
 `stopping: all_exhausted` (default). Every `[[datasets]]` entry needs a
 positive `weight`.
+
+**sequential** — curriculum: datasets run to completion in the listed order;
+rows within each dataset are shuffled with `seed`. The trainer's sampler is
+switched to sequential so it doesn't reshuffle the whole mix (HF `Trainer`
+defaults to a random sampler). With CPT packing, sequences only mix documents
+across a dataset boundary within one 1000-row packing batch.
 
 Rule of thumb: prefer `concat` when dataset sizes are close and you want each
 row seen once; use `interleave` to actively control the ratio (e.g., "farm is

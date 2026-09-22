@@ -50,6 +50,8 @@ def default_config() -> dict:
         "max_steps":      -1,
         "weight_decay":   1e-3,
         "save_steps":     100,
+        "save_total_limit": None,  # keep N newest checkpoint-*/ dirs; None = keep all
+        "train_sampling": "random",  # random | sequential (set by mixer for sequential recipes)
         "eval_steps":     0.1,
         "do_eval":        False,      # SFT eval OOMs on 16GB VRAM; use gate/loss post-hoc
         # LoRA
@@ -146,7 +148,10 @@ def run_sft(config: dict, train_ds, eval_ds=None):
         lr_scheduler_type = cfg["scheduler"],
 
         logging_steps = cfg["log_freq"],
-        save_steps    = cfg["save_steps"],
+        save_steps       = cfg["save_steps"],
+        save_total_limit = cfg["save_total_limit"],
+
+        train_sampling_strategy = cfg["train_sampling"],
 
         fp16 = not is_bfloat16_supported(),
         bf16 = is_bfloat16_supported(),

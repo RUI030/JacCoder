@@ -125,13 +125,13 @@ def mix(items: list[tuple[str, Dataset, float, int]], mixing: dict, seed: int) -
         return concatenate_datasets(parts).shuffle(seed=seed)
 
     if strategy == "sequential":
-        # Preserve recipe order AND in-task file order (no shuffling at all).
-        # Each task runs to completion before the next; rows within a task
-        # are consumed in the order they appear on disk.
+        # Preserve recipe order: each task runs to completion before the next.
+        # Rows within a task are shuffled (seeded) so on-disk sort order
+        # (source, length, ...) doesn't leak into consecutive steps.
         parts = []
         for _, ds, _, repeat in items:
             for _ in range(max(1, repeat)):
-                parts.append(ds)
+                parts.append(ds.shuffle(seed=seed))
         return concatenate_datasets(parts)
 
     if strategy == "interleave":
@@ -157,7 +157,8 @@ MODEL_KEYS      = ("base_model", "adapter", "resume_from", "run_name", "out_dir"
                    "hf_org", "hf_repo", "hf_token", "report_to", "log_freq")
 HYPERPARAM_KEYS = ("epochs", "batch_size", "grad_acc", "optimizer",
                    "lr", "embed_lr", "scheduler", "warmup_steps", "max_steps",
-                   "weight_decay", "save_steps", "eval_steps", "do_eval",
+                   "weight_decay", "save_steps", "save_total_limit",
+                   "eval_steps", "do_eval",
                    "lora_rank", "lora_alpha", "lora_dropout", "target_module",
                    "rslora", "bias", "grad_checkpt", "packing",
                    "instruction_part", "response_part")
@@ -240,6 +241,10 @@ def build_from_recipe(path: str | Path) -> tuple[str, dict, Dataset, Dataset | N
 
     mixing = recipe.get("mixing", {}) or {"strategy": "concat"}
     train_ds = mix(train_items, mixing, seed)
+    # Trainer's default RandomSampler reshuffles every epoch, which would undo
+    # the curriculum order that `sequential` builds.
+    if (mixing.get("strategy") or "concat").lower() == "sequential":
+        cfg["train_sampling"] = "sequential"
     if train_ds is None:
         raise ValueError("Recipe produced no training rows.")
 
