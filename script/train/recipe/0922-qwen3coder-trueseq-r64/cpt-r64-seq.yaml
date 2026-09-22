@@ -1,0 +1,56 @@
+# Qwen3-Coder-30B-A3B port of 0910-sequential-r64/cpt-r64-seq.yaml: same hyperparams,
+# new base model + out_dir, save_total_limit added. Smoke-tested via
+# dev/smoke_*_qwen3coder.yaml on RTX PRO 6000 (96GB), 4-bit.
+# CPT — sequential curriculum probe against the r=64 concat baseline
+# (0909-3-r64/cpt-r64). Only variable that changes: mixing strategy
+# concat -> sequential. Dataset order below IS the curriculum — tasks run to
+# completion in listed order, rows within a task shuffled with `seed`.
+recipe:
+  name: cpt-r64-seq
+  stage: cpt
+  base_model: unsloth/Qwen3-Coder-30B-A3B-Instruct
+  adapter: ""
+  out_dir: output/adapter/0922-qwen3coder-trueseq-r64/cpt
+  seed: 3407
+  max_seq_length: 4096
+  load_in_4bit: true
+  text_only: true
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 10
+  lr: 5.0e-5
+  embed_lr: 0
+  optimizer: adamw_8bit
+  scheduler: linear
+  warmup_steps: 5
+  weight_decay: 1.0e-3
+  save_steps: 100
+  save_total_limit: 2           # r64 checkpoints are ~15GB each
+  do_eval: false
+  lora_rank: 64
+  lora_alpha: 32
+  lora_dropout: 0
+  rslora: true
+  bias: none
+  grad_checkpt: unsloth
+  packing: true
+  target_module:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+mixing:
+  strategy: sequential
+
+# Ordered basic -> advanced. Reorder here to change the curriculum.
+datasets:
+  - name: Ayush-ground-truth
+  - name: Nitin-9k-py2jac-idiom
+  - name: Nitin-jachack-all
+  - name: Rui-jacapp-4

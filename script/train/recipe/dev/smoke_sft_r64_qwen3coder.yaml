@@ -1,0 +1,68 @@
+# 3-step SFT smoke test for the trueseq r64 + rsLoRA setting on
+# Qwen3-Coder-30B-A3B (MoE). Mirrors 0910-sequential-r64/sft-r64-seq.yaml
+# except base model, step cap and logging. Checks: response-only masking
+# gives a non-zero loss, and r64 at 4096 ctx fits in VRAM.
+recipe:
+  name: smoke_sft_r64_qwen3coder
+  stage: sft
+  base_model: unsloth/Qwen3-Coder-30B-A3B-Instruct
+  adapter: ""
+  seed: 3407
+  max_seq_length: 4096
+  load_in_4bit: true
+  text_only: true
+  chat_template: null           # Qwen3-Coder native ChatML; markers below verified against it
+  report_to: []                 # skip tensorboard for smoke test
+  log_freq: 1
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 10
+  lr: 2.0e-4
+  embed_lr: 0
+  optimizer: adamw_8bit
+  scheduler: linear
+  warmup_steps: 1
+  weight_decay: 1.0e-3
+  max_steps: 3
+  save_steps: 3                 # exercise one checkpoint write
+  do_eval: false
+  lora_rank: 64
+  lora_alpha: 16
+  lora_dropout: 0
+  rslora: true
+  bias: none
+  grad_checkpt: unsloth
+  packing: false
+  target_module:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  instruction_part: "<|im_start|>user\n"
+  response_part:    "<|im_start|>assistant\n"
+
+mixing:
+  strategy: sequential
+
+datasets:
+  - task: code_completion
+    name: Nitin-9k-py2jac-idiom
+  - task: py2jac
+    name: opus-synth-v2
+  - task: js2jac
+    name: Nitin-3k-js2jac-idiom
+  - task: osp
+    name: Nitin-1k-osp
+  - task: farm
+    name: Nitin-2k-farm
+  - task: code_gen
+    name: opus-synth-v2
+  - task: scaffold2impl
+    name: Rui-jacapp-scaffold
+  - task: qa
+    name: opus-synth-v2

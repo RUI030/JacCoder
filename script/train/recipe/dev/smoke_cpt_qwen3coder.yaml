@@ -8,7 +8,7 @@ recipe:
   adapter: ""
   seed: 3407
   max_seq_length: 2048          # samples median ~320 chars; packing fills the window
-  load_in_4bit: false           # bf16 (~61GB) fits in 96GB; bnb-4bit on MoE experts is the riskier path
+  load_in_4bit: true            # bnb 4-bit QLoRA; bf16 load was slow and hit 59GB at 13% loaded
   text_only: true               # match utils/model.py:load_model, which always loads text_only=True
   report_to: []                 # skip tensorboard for smoke test
   log_freq: 1                   # log loss every step
