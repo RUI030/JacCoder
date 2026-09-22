@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_NAME="${1:-tornith}"
+ENV_NAME="${1:-jacllm}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
+TORCH_BACKEND="${TORCH_BACKEND:-auto}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REQUIREMENTS_FILE="${SCRIPT_DIR}/requirement.txt"
 
 if command -v mamba >/dev/null 2>&1; then
     MAMBA_BIN="$(command -v mamba)"
-elif [[ -x /home/imrui/miniforge3/bin/mamba ]]; then
-    MAMBA_BIN="/home/imrui/miniforge3/bin/mamba"
+elif [[ -x "${HOME}/miniforge3/bin/mamba" ]]; then
+    MAMBA_BIN="${HOME}/miniforge3/bin/mamba"
 else
     echo "Error: mamba was not found." >&2
     exit 1
 fi
 
-MAMBA_BASE="$(${MAMBA_BIN} info --base)"
+# mamba 1.x prints the bare path; mamba 2.x prints "base environment : <path>".
+MAMBA_BASE="$("${MAMBA_BIN}" info --base | awk -F': ' '{print $NF}' | tr -d '[:space:]')"
 ENV_PREFIX="${MAMBA_BASE}/envs/${ENV_NAME}"
 
 if [[ -d "${ENV_PREFIX}/conda-meta" ]]; then
@@ -34,9 +36,12 @@ ENV_PYTHON="${ENV_PREFIX}/bin/python"
 # --torch-backend=auto is a uv option, not pip's --no-deps. It chooses mutually
 # compatible Torch, torchvision, Triton, and xFormers builds for the detected
 # NVIDIA/AMD/CPU platform; requirement.txt owns the portable package pins.
+# Override with TORCH_BACKEND=cu130 (etc.) when auto picks an index with no
+# build inside unsloth's torch cap: on CUDA 13.2 drivers auto selects cu132,
+# which only has torch>=2.12, and uv silently falls back to a +cpu wheel.
 "${ENV_PREFIX}/bin/uv" pip install \
     --python "${ENV_PYTHON}" \
-    --torch-backend=auto \
+    --torch-backend="${TORCH_BACKEND}" \
     --upgrade \
     --requirements "${REQUIREMENTS_FILE}"
 

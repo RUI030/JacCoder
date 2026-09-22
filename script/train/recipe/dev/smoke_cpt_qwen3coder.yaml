@@ -1,0 +1,49 @@
+# 30-step CPT smoke test for Qwen3-Coder-30B-A3B (MoE) on one CPT dataset.
+# Goal: prove load -> LoRA wrap -> packed train -> checkpoint -> adapter save
+# works end-to-end on the RTX PRO 6000 (96GB) before committing to a full run.
+recipe:
+  name: smoke_cpt_qwen3coder
+  stage: cpt
+  base_model: unsloth/Qwen3-Coder-30B-A3B-Instruct
+  adapter: ""
+  seed: 3407
+  max_seq_length: 2048          # samples median ~320 chars; packing fills the window
+  load_in_4bit: false           # bf16 (~61GB) fits in 96GB; bnb-4bit on MoE experts is the riskier path
+  text_only: true               # match utils/model.py:load_model, which always loads text_only=True
+  report_to: []                 # skip tensorboard for smoke test
+  log_freq: 1                   # log loss every step
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 4
+  lr: 5.0e-5
+  embed_lr: 0
+  optimizer: adamw_8bit
+  scheduler: linear
+  warmup_steps: 2
+  weight_decay: 1.0e-3
+  max_steps: 30
+  save_steps: 15                # exercise checkpoint writing mid-run
+  do_eval: false
+  lora_rank: 16
+  lora_alpha: 16
+  lora_dropout: 0
+  rslora: true
+  bias: none
+  grad_checkpt: unsloth
+  packing: true
+  target_module:                # attention + expert MLPs; router (mlp.gate), embed, lm_head left frozen
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+mixing:
+  strategy: concat
+
+datasets:
+  - name: Nitin-9k-py2jac-idiom
