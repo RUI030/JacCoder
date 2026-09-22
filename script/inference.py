@@ -1,6 +1,6 @@
-"""Interactive multi-turn inference for the Ornith SFT model."""
+"""Interactive multi-turn inference for a local JacLLM model or adapter."""
 
-import sys
+import json, sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent))
@@ -42,13 +42,28 @@ def resolve_model_name() -> str:
     return BASE_MODEL
 
 
-def chat(model, tokenizer):
+def model_label(model_name: str) -> str:
+    """Short chat label from the base model id: `unsloth/qwen3-coder-...` -> `qwen3`.
+
+    Local dirs are resolved to the base id recorded in adapter_config.json
+    (adapters) or config.json (merged models) before taking the first section.
+    """
+    path = Path(model_name)
+    for fname, key in (("adapter_config.json", "base_model_name_or_path"),
+                       ("config.json",         "_name_or_path")):
+        if (path / fname).is_file():
+            model_name = json.loads((path / fname).read_text()).get(key) or model_name
+            break
+    return model_name.rstrip("/").split("/")[-1].split("-")[0].lower()
+
+
+def chat(model, tokenizer, label: str):
     """Run a multi-turn terminal chat until Ctrl+C or EOF."""
     messages = []
     if SYSTEM_PROMPT:
         messages.append({"role": "system", "content": SYSTEM_PROMPT})
 
-    print("\nInteractive Ornith chat")
+    print(f"\nInteractive {label} chat")
     print("Press Ctrl+C to exit. Type /clear to reset conversation history.\n")
 
     while True:
@@ -77,12 +92,13 @@ def chat(model, tokenizer):
             enable_thinking=ENABLE_THINKING,
         )
         messages.append({"role": "assistant", "content": reply})
-        print(f"Ornith: {reply}\n")
+        print(f"{label}: {reply}\n")
 
 
 def main():
-    model, tokenizer = load_model(resolve_model_name(), MAX_SEQ_LENGTH, LOAD_IN_4BIT, DTYPE)
-    chat(model, tokenizer)
+    model_name = resolve_model_name()
+    model, tokenizer = load_model(model_name, MAX_SEQ_LENGTH, LOAD_IN_4BIT, DTYPE)
+    chat(model, tokenizer, model_label(model_name))
 
 
 if __name__ == "__main__":
