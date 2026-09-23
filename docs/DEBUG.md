@@ -1,38 +1,98 @@
-# Model weight left in GPU after closing the notebook
-> Open the notebook and restart the kernal
+# Debug log
 
- Layer name mismatch（"missing adapter keys" warning）
+## Model weights left in GPU after closing the notebook
 
-- 原因： 訓練時沒傳 text_only=True → unsloth 保留 Ornith 的 processor VLM wrapper → adapter 存的 key 帶 .language_model. 層（base_model.model.model.language_model.layers.N...）。而 eval / inference 端 utils/model.py 一直用 text_only=True，unsloth 把 wrapper 拆掉、language_model 直接當 root，PEFT 找 base_model.model.model.layers.N... 對不上 → 靜默 load 空 adapter → 每個 checkpoint loss 都一樣（都是 base model loss）。
-- 試錯過的死路： loss.py 傳 text_only=False 想反向對齊 → 撞到 unsloth Issue #1436 未修的 VLM text-only bug（processor 讀輸入時當作圖片，PIL crash）。所以只能治本改訓練端。
+Open the notebook and restart the kernel.
 
-2. Loss.py checkpoint 迴圈 OOM
 
-- 原因： 每個 checkpoint load 一個新 model，del model, tokenizer; torch.cuda.empty_cache() 不夠 — Python 循環引用（trainer / peft wrapper / hooks 之間互指）撐住舊 model 的 refcount，GC 不跑就不釋放 → 第二次 load 時前一份 8GB 還佔著 VRAM。
-- 修法： 加 import gc + gc.collect() + torch.cuda.ipc_collect()：
-del model, tokenizer
-gc.collect()             # 強制打斷循環引用
-torch.cuda.empty_cache()
-torch.cuda.ipc_collect() # 回收 IPC handle
+## 1. Layer name mismatch ("missing adapter keys" warning)
 
-（額外附贈的 CPT eval OOM） — 訓練時 eval_strategy="steps" OOM 是另一回事，是 accelerate/HF 把 bf16 logits 上 cast 到 fp32 造成的，還沒治本，現在用 DO_EVAL=False 迴避，改用 loss.py 這條 forward-only path 補 eval。
-3. MoE adapter merge 進 4-bit 後等於 base model（Qwen3-Coder-30B-A3B）
+- **Cause:** training ran without `text_only=True`, so Unsloth kept Ornith's
+  processor VLM wrapper and the adapter was saved with a `.language_model.`
+  level in its keys (`base_model.model.model.language_model.layers.N...`).
+  Eval / inference in `utils/model.py` always uses `text_only=True`, so Unsloth
+  strips the wrapper and makes `language_model` the root; PEFT then looks for
+  `base_model.model.model.layers.N...`, finds nothing, and silently loads an
+  empty adapter. Every checkpoint shows the same loss (the base model's).
+- **Dead end:** passing `text_only=False` in `loss.py` to match the training
+  side runs into Unsloth issue #1436, an unfixed VLM text-only bug (the
+  processor treats the input as an image and PIL crashes). The only real fix
+  is on the training side.
 
-- 症狀： SFT 後 batch.py 小 eval 通過率 0–20%，code_gen 的 prompt 沒寫「Jac」時模型直接回 React/JSX、Python。訓練 loss 正常（code_gen 降到 0.40）。
-- 原因： utils/model.py:load_model 一律 merge_and_unload()。這個 MoE adapter 的 LoRA 掛在 fused expert 參數上（adapter_config 有 target_parameters），merge 進 4-bit base 之後生成結果跟 base model 一模一樣，adapter 效果整個消失，而且沒有任何 warning。
-- 怎麼確認： 同一個 training prompt 跑三種模式——adapter 不 merge（輸出 ```jac cl { def:pub Counter() ...，跟訓練答案一致）、disable_adapter()（React）、merge 後（React，跟 base 完全相同）。
-- 修法： load_model 遇到 target_parameters 就不 merge，直接帶 adapter 推論（commit c44edd6）。Ornith 的 adapter 照舊 merge（它反而需要 merge 才不會 mis-attach）。要匯出（GGUF / 部署）就 merge 成 16-bit（save_pretrained_merged(..., "merged_16bit")），不要 merge 進 4-bit，並用 training prompt 驗證。
-- 附帶： 之前 CPT adapter 的 inference 測試（寫出 func factorial 之類不合法語法）也走同一條 merge 路徑，那次看到的其實是 base model。
 
-4. Packed SFT 把下一段對話的 system prompt 也拿去訓練
+## 2. `loss.py` checkpoint loop OOMs
 
-- 症狀： packing: true 的 smoke，每個 packed sequence 的 trained span 數 ≈ 2×對話數−1，多出來的 span 從 <|im_start|> 後的 "system\n..." 開始。
-- 原因： train_on_responses_only 在 packing 之後才跑，把整條 packed sequence 當成一段多輪對話：從 assistant marker unmask 到下一個 user marker，中間剛好夾著下一段對話的 system prompt。有 system prompt 的資料集（code_completion / js2jac / farm / scaffold2impl，約 60% 樣本）都會中。
-- 死路： 改成預先 tokenize 並帶 assistant_masks 欄位 → Unsloth 對已 tokenize 的資料只保留 input_ids（外加 labels），換成不看 mask 的 DataCollatorForLanguageModeling，結果整條 sequence 都被訓練（loss 從 0.2 跳到 0.5–0.75）。
-- 修法： sft.py 在 packing 前逐段對話 tokenize，labels 只留 assistant turn（內容 + <|im_end|>\n），用 labels 欄位帶過 packing，並跳過 train_on_responses_only（commit 4599fa7）。驗證：trained spans == assistant turns、沒有 system/user token、position_ids 每段重新從 0 開始。
+- **Cause:** each checkpoint loads a new model, and
+  `del model, tokenizer; torch.cuda.empty_cache()` is not enough. Python
+  reference cycles (trainer / PEFT wrapper / hooks pointing at each other)
+  keep the old model alive until GC runs, so the previous 8GB is still in VRAM
+  when the next checkpoint loads.
+- **Fix:**
 
-5. sequential mixing 其實被 shuffle 掉
+  ```python
+  import gc
+  del model, tokenizer
+  gc.collect()              # break the reference cycles
+  torch.cuda.empty_cache()
+  torch.cuda.ipc_collect()  # release IPC handles
+  ```
 
-- 症狀： 沒有明顯症狀；只是 sequential 跟 concat 的結果比不出差別。
-- 原因： mixer.py 的 sequential 有照順序 concat，但 HF Trainer 預設 RandomSampler，每個 epoch 把整份資料重新打散。
-- 修法： mixer 對 sequential recipe 設 train_sampling="sequential"，cpt.py / sft.py 傳成 train_sampling_strategy（commit 31da523）。在這之前的 trueseq run（例如 0910-trueseq-r64）實際上等同 concat。
+- **Related (CPT eval OOM):** `eval_strategy="steps"` during training OOMs for
+  a different reason: accelerate/HF upcasts bf16 logits to fp32. Not fixed at
+  the root; `DO_EVAL=False` avoids it, and `loss.py`'s forward-only path is
+  used for eval instead.
+
+
+## 3. MoE adapter merged into 4-bit == base model (Qwen3-Coder-30B-A3B)
+
+- **Symptom:** after SFT, a small `batch.py` eval passed 0–20%, and code_gen
+  prompts (which never say "Jac") were answered in React/JSX or Python, even
+  though training loss was normal (code_gen down to 0.40).
+- **Cause:** `utils/model.py:load_model` always called `merge_and_unload()`.
+  This MoE adapter puts LoRA on fused expert parameters (`target_parameters`
+  in `adapter_config.json`); merged into the 4-bit base, it generates exactly
+  like the base model. The adapter's effect disappears with no warning.
+- **How it was confirmed:** the same training prompt in three modes. Adapter
+  unmerged: ```` ```jac cl { def:pub Counter() ... ````, matching the training
+  answer. `disable_adapter()`: React. Merged: React, identical to the base.
+- **Fix:** `load_model` keeps adapters with `target_parameters` unmerged
+  (commit `c44edd6`). Ornith adapters still merge (they need it to avoid
+  mis-attaching). For exports (GGUF / deployment), merge into 16-bit with
+  `save_pretrained_merged(..., "merged_16bit")`, never into the 4-bit model,
+  and verify on a training prompt.
+- **Also affected:** the earlier CPT-adapter inference test (which produced
+  invalid syntax like `func factorial`) went through the same merge path, so
+  what it showed was the base model.
+
+
+## 4. Packed SFT trained the next conversation's system prompt
+
+- **Symptom:** in a `packing: true` smoke run, each packed sequence had about
+  2 × conversations − 1 trained spans; the extra spans started right after
+  `<|im_start|>` with `system\n...`.
+- **Cause:** `train_on_responses_only` runs after packing and treats the whole
+  packed sequence as one multi-turn chat: it unmasks from an assistant marker
+  to the next user marker, and the next conversation's system prompt sits in
+  between. Every dataset with a system prompt is affected (code_completion,
+  js2jac, farm, scaffold2impl: about 60% of samples).
+- **Dead end:** pre-tokenizing with an `assistant_masks` column. For
+  pre-tokenized data Unsloth keeps only `input_ids` (plus `labels`) and swaps
+  in a `DataCollatorForLanguageModeling` that ignores the mask, so the whole
+  sequence was trained (loss jumped from ~0.2 to 0.5–0.75).
+- **Fix:** `sft.py` tokenizes each conversation before packing, with `labels`
+  kept only on assistant turns (content + `<|im_end|>\n`), carries them
+  through packing as the `labels` column, and skips `train_on_responses_only`
+  (commit `4599fa7`). Verified: trained spans == assistant turns, no system or
+  user tokens trained, `position_ids` restart at 0 per conversation.
+
+
+## 5. `sequential` mixing was actually shuffled
+
+- **Symptom:** none visible; sequential and concat runs just didn't differ.
+- **Cause:** `mixer.py`'s sequential strategy concatenates datasets in order,
+  but HF `Trainer` defaults to a `RandomSampler` and reshuffles the whole
+  dataset every epoch.
+- **Fix:** the mixer sets `train_sampling="sequential"` for sequential
+  recipes, and `cpt.py` / `sft.py` pass it as `train_sampling_strategy`
+  (commit `31da523`). Trueseq runs before that (e.g. `0910-trueseq-r64`) were
+  effectively concat.
