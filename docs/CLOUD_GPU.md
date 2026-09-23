@@ -129,10 +129,49 @@ by ~9.5GB (safetensors builds the file in memory).
   adapter on / `disable_adapter()` / merged on a *training* prompt.
 - **Unmerged HF generation is slow** (~30s/sample at batch 4). Raise
   `python script/eval/batch.py --batch-size 16`, or export to GGUF (below).
-- **GGUF / llama.cpp (in progress).** Build on Blackwell:
-  `cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120 -DLLAMA_CURL=OFF`.
-  `convert_hf_to_gguf.py` runs in the `jacllm` env with
-  `PYTHONPATH=gguf-py` (skip its requirements file, which pins torch). Serve
-  with `llama-server` and point `script/eval/infer/openrouter.py --base-url
-  http://127.0.0.1:8080/v1` at it. Merge to 16-bit first
-  (`save_pretrained_merged(..., "merged_16bit")`), not into the 4-bit model.
+- **`gate.py` used to execute model code.** Its default was `check,run`, so every
+  check-passing sample ran under `jac run` (30s timeout on the direct child only,
+  no memory cap). The SFT eval is check-level (`docs/EVAL.md`), and these
+  samples have no entry point anyway, so the default is now `check`; opt in with
+  `--checks check,run`.
+
+
+## GGUF export and eval (llama.cpp)
+
+1. Merge into 16-bit, not the 4-bit model:
+   `model.save_pretrained_merged(out, tok, save_method="merged_16bit")` on the
+   loaded adapter (~57GB, ~10 min). Check a training prompt still gets the trained
+   answer before converting.
+2. Build llama.cpp on Blackwell:
+   `cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120 -DLLAMA_CURL=OFF`
+   and build `llama-server llama-quantize`.
+3. Convert in the `jacllm` env without llama.cpp's requirements file (it pins
+   torch): `PYTHONPATH=gguf-py python convert_hf_to_gguf.py <merged> --outtype q8_0`.
+   Q4_K_M: `llama-quantize --allow-requantize <q8_0.gguf> <out> Q4_K_M` (18.6GB).
+4. Eval: `bash script/eval/gguf_eval.sh <gguf> <tag> <limit>` (llama-server +
+   `openrouter.py --base-url` + `gate.py`). About 5 samples/s at 16 parallel
+   slots vs ~30s/sample for the unmerged HF adapter.
+
+Budget disk for the merge and each quant before starting: merged 57GB, Q8_0
+32.5GB, Q4_K_M 18.6GB. If only Q4 is needed, don't keep Q8 around.
+
+
+## Nitin function tests on a container
+
+`bash script/eval/Nitin-test/run_gguf.sh <gguf> <tag> test` generates through
+llama-server and grades as a non-root user. Things that broke on RunPod:
+
+- **Every test errors under root.** jac's embedded postgres runs `initdb`, which
+  refuses root. Grade as `jacgrader` (`useradd -m jacgrader`); `su -` also gives
+  a clean env without `HF_TOKEN`. `/root` is `drwx------`, so that user runs the
+  stdlib-only graders with the system Python, not the `jacllm` env.
+- **`jac test` uses xdist `-n auto`:** 128 workers here, ~30GB and ~40s for one
+  correct sample. `PYTEST_XDIST_AUTO_NUM_WORKERS=4` → ~1.4GB, ~5s.
+- **`systemd-run --user --scope` exists but fails** (no user bus). The graders
+  now probe it; without scopes, `eval_jac.py` caps each test with an RSS
+  watchdog on its process group (RLIMIT_AS breaks jac's thread creation).
+- Runaway samples, verified with planted cases: an infinite loop ends as
+  `timeout`, runaway allocation as `test_fail`/`memory_cap`, and a spawned
+  child process is killed with the group. Embedded postgres daemonizes out of
+  the group, so `grade_stream.py` stops it and wipes its data dir between chunks
+  and at the end (it once grew to 1.1TB).
