@@ -48,9 +48,17 @@ def load_model(
     # unsloth's text-only unwrap otherwise silently mis-attaches PEFT and
     # returns raw base-model output. Base or already-merged model dirs skip
     # this branch (no peft_config).
+    #
+    # MoE adapters with LoRA on fused expert parameters (`target_parameters`,
+    # e.g. Qwen3-Coder-30B-A3B) are the opposite case: merge_and_unload on the
+    # 4-bit base generates exactly like the base model, while the unmerged
+    # adapter produces the trained output. Keep those attached.
     if hasattr(model, "peft_config"):
-        print("Merging LoRA into base (in-memory) for inference")
-        model = model.merge_and_unload()
+        if any(getattr(c, "target_parameters", None) for c in model.peft_config.values()):
+            print("MoE expert LoRA (target_parameters): keeping adapter unmerged for inference")
+        else:
+            print("Merging LoRA into base (in-memory) for inference")
+            model = model.merge_and_unload()
 
     FastLanguageModel.for_inference(model)
     tokenizer.truncation_side = "left"
