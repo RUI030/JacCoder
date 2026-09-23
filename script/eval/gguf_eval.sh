@@ -15,6 +15,8 @@ until curl -sf http://127.0.0.1:8080/health >/dev/null; do
     kill -0 $SERVER 2>/dev/null || { echo "llama-server died"; tail -20 "logs/llama_server_${TAG}.log"; exit 1; }
     sleep 3
 done
+# A healthy port isn't proof it's ours: another listener (e.g. a proxy) can answer.
+sleep 2; kill -0 $SERVER 2>/dev/null || { echo "llama-server exited; port 8080 is served by something else"; tail -5 "logs/llama_server_${TAG}.log"; exit 1; }
 echo "llama-server ready"
 
 for td in code_completion:Nitin-9k-py2jac-idiom code_gen:opus-synth-v2 py2jac:opus-synth-v2 \

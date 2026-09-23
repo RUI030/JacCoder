@@ -3,7 +3,7 @@
 #   bash script/eval/Nitin-test/run_gguf.sh <gguf> <tag> <dev|test> [limit] [port]
 # Needs a non-root `jacgrader` user (useradd -m jacgrader) and jac at /workspace/bin/jac.
 set -uo pipefail
-GGUF="$1"; TAG="$2"; SPLIT="$3"; LIMIT="${4:-0}"; PORT="${5:-8081}"; NP=16
+GGUF="$1"; TAG="$2"; SPLIT="$3"; LIMIT="${4:-0}"; PORT="${5:-8091}"   # not 8081: RunPod nginx listens there and proxies to 8080; NP=16
 ROOT=/workspace/JacCoder
 cd "$ROOT"
 
@@ -15,6 +15,8 @@ until curl -sf "http://127.0.0.1:${PORT}/health" >/dev/null; do
     kill -0 $SERVER 2>/dev/null || { echo "llama-server died"; tail -20 "logs/llama_server_${TAG}.log"; exit 1; }
     sleep 3
 done
+# A healthy port isn't proof it's ours: another listener (e.g. a proxy) can answer.
+sleep 2; kill -0 $SERVER 2>/dev/null || { echo "llama-server exited; port $PORT is served by something else"; tail -5 "logs/llama_server_${TAG}.log"; exit 1; }
 echo "llama-server ready on :$PORT"
 
 # jacgrader: non-root (embedded postgres refuses root), clean env (no HF_TOKEN),
