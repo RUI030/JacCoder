@@ -30,6 +30,8 @@ script/eval/
 | Score existing predictions.jsonl | `python script/eval/gate.py --pred <path/to/predictions.jsonl>` |
 | See which samples flipped between two runs | `python script/eval/compare/confmat.py --a A/report.json --b B/report.json` |
 | Cluster failures by error type | `python script/eval/compare/taxonomy.py --a A/report.json --b B/report.json` |
+| Eval a GGUF export (llama-server + gate) | `bash script/eval/gguf_eval.sh <gguf> <tag> <limit>` |
+| Nitin function tests on a GGUF | `bash script/eval/Nitin-test/run_gguf.sh <gguf> <tag> test` (see `docs/CLOUD_GPU.md`) |
 | Check LoRA rank utilization | `python script/eval/probe/svd_energy.py --adapter <adapter_dir>` |
 | CPT loss per checkpoint | `python script/eval/probe/cpt_loss.py --run <cpt-run> --ds <ds>` |
 

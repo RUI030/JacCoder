@@ -10,7 +10,7 @@ from utils.jac_cli import check as jac_check, run as jac_run
 PRED_FILE     = ""     # e.g. output/eval/code_completion/<ds>/<tag>/predictions.jsonl
 CHECK_TIMEOUT = 30     # seconds per file
 RUN_TIMEOUT   = 30
-CHECKS        = ["check", "run"]   # ladder: run only if check passed
+CHECKS        = ["check"]          # static only; opt into executing model code with --checks check,run
 
 # CLI overrides ============================================
 cli = argparse.ArgumentParser(add_help=False)
