@@ -10,7 +10,7 @@ network volume). Each item is symptom → cause → fix.
 | Survives (`/workspace`, network volume) | Lost on pod reset (container disk, ~30GB) |
 |---|---|
 | repo, `output/`, HF cache (`HF_HOME=/workspace/.cache/huggingface`) | conda env in `/root/miniforge3/envs/` |
-| `/workspace/bin/jac`, `/workspace/llama.cpp` | `~/.local/bin`, `~/.bashrc` (PATH, `HF_TOKEN`) |
+| `/workspace/bin/jac`, `/workspace/unsloth-studio` (incl. its llama.cpp) | `~/.local/bin`, `~/.bashrc` (PATH, `HF_TOKEN`) |
 | | page cache (model shards in RAM) |
 
 Restart checklist:
@@ -192,15 +192,27 @@ slots is tight (lower `-np`). Budget ~64GB+ host RAM for the load peak.
    `model.save_pretrained_merged(out, tok, save_method="merged_16bit")` on the
    loaded adapter (~57GB, ~10 min). Check a training prompt still gets the trained
    answer before converting.
-2. Build llama.cpp on Blackwell:
-   `cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120 -DLLAMA_CURL=OFF`
-   and build `llama-server llama-quantize`.
+2. Use Unsloth Studio's prebuilt llama.cpp (`/workspace/unsloth-studio/llama.cpp`:
+   `convert_hf_to_gguf.py`, `build/bin/llama-server`, `build/bin/llama-quantize`)
+   instead of building one. Its CUDA backend needs the CUDA 13 runtime from
+   Studio's venv on `LD_LIBRARY_PATH`
+   (`.../unsloth_studio/lib/python3*/site-packages/nvidia/cu13/lib`); without it
+   `llama-server --list-devices` shows `(none)` and it silently runs on CPU
+   (~600x slower prompt processing). The eval launchers set this and refuse to
+   start without a CUDA device. (A self-built llama.cpp works too:
+   `cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120`; point
+   `LLAMA_CPP` at it.)
 3. Convert in the `jacllm` env without llama.cpp's requirements file (it pins
    torch): `PYTHONPATH=gguf-py python convert_hf_to_gguf.py <merged> --outtype q8_0`.
    Q4_K_M: `llama-quantize --allow-requantize <q8_0.gguf> <out> Q4_K_M` (18.6GB).
 4. Eval: `bash script/eval/gguf_eval.sh <gguf> <tag> <limit>` (llama-server +
    `openrouter.py --base-url` + `gate.py`). About 5 samples/s at 16 parallel
-   slots vs ~30s/sample for the unmerged HF adapter.
+   slots vs ~30s/sample for the unmerged HF adapter. Per-task x class pass rates:
+   `python script/eval/compare/heatmap.py --tag <tag> --out <png>`.
+
+On RunPod, nginx listens on `0.0.0.0:8081` and proxies to `8080`: don't serve on
+8081, and don't trust a healthy port as proof your server started (the launchers
+check their own server process after the health check).
 
 Budget disk for the merge and each quant before starting: merged 57GB, Q8_0
 32.5GB, Q4_K_M 18.6GB. If only Q4 is needed, don't keep Q8 around.
