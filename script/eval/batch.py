@@ -42,10 +42,15 @@ cli.add_argument("--adapter", dest="adapter")
 cli.add_argument("--limit",   dest="limit",   type=int)
 cli.add_argument("--checks",  dest="checks",  help="comma list, e.g. check,run")
 cli.add_argument("--tasks",   dest="tasks",   help="comma list of task names to keep, e.g. osp,code_gen")
+cli.add_argument("--batch-size", dest="batch_size", type=int,
+                 help="generation batch size (infer.adapter.BATCH_SIZE); raise on large-VRAM GPUs")
 args, _ = cli.parse_known_args()
 if args.adapter is not None: ADAPTER_PATH = args.adapter
 if args.limit   is not None: LIMIT        = args.limit
 if args.checks:              METRICS      = [c.strip() for c in args.checks.split(",") if c.strip()]
+if args.batch_size:
+    import infer.adapter
+    infer.adapter.BATCH_SIZE = args.batch_size   # read at call time by generate_predictions
 if args.tasks:
     keep = {t.strip() for t in args.tasks.split(",") if t.strip()}
     EVAL_SET = [(t, d) for (t, d) in EVAL_SET if t in keep]
