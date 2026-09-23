@@ -5,9 +5,19 @@ set -uo pipefail
 GGUF="$1"; TAG="$2"; LIMIT="$3"; NP="${4:-16}"
 ROOT=/workspace/JacCoder
 PY=/root/miniforge3/envs/jacllm/bin/python
+LLAMA_CPP="${LLAMA_CPP:-/workspace/unsloth-studio/llama.cpp}"   # Unsloth Studio's prebuilt llama.cpp
 cd "$ROOT"
 
-/workspace/llama.cpp/build/bin/llama-server -m "$GGUF" -ngl 99 -np "$NP" -c $((NP * 8192)) \
+# Studio's CUDA backend links CUDA 13 runtime libs that live in its venv; without
+# them llama.cpp silently falls back to CPU (~600x slower prompt processing).
+for d in "$LLAMA_CPP/build/bin" /workspace/unsloth-studio/unsloth_studio/lib/python3*/site-packages/nvidia/cu13/lib; do
+    [ -d "$d" ] && LD_LIBRARY_PATH="$d:${LD_LIBRARY_PATH:-}"
+done
+export LD_LIBRARY_PATH
+"$LLAMA_CPP/build/bin/llama-server" --list-devices 2>&1 | grep -q CUDA \
+    || { echo "llama-server sees no CUDA device (would run on CPU); check LD_LIBRARY_PATH"; exit 1; }
+
+"$LLAMA_CPP/build/bin/llama-server" -m "$GGUF" -ngl 99 -np "$NP" -c $((NP * 8192)) \
     --jinja -fa on --port 8080 --host 127.0.0.1 > "logs/llama_server_${TAG}.log" 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null' EXIT
