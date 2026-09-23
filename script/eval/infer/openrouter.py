@@ -1,4 +1,5 @@
-"""OpenRouter inference driver — writes predictions.jsonl compatible with gate.py.
+"""OpenRouter (or any OpenAI-compatible server) inference driver — writes
+predictions.jsonl compatible with gate.py.
 
 Same output schema as script/eval/sft/infer.py, so gate.py, confmat.py, and
 the failure-taxonomy scripts run unchanged on the result.
@@ -9,6 +10,10 @@ Usage:
         --model anthropic/claude-3.5-sonnet \
         --task osp --ds Nitin-1k-osp \
         --limit 0 --workers 8
+
+Local llama.cpp server (e.g. a GGUF export; --model is ignored by llama-server):
+    python script/eval/infer/openrouter.py --base-url http://127.0.0.1:8080/v1 \
+        --model local --out-tag <tag> --task osp --ds Nitin-1k-osp --repeat-penalty 1.05
 
 Output goes to:
     output/eval/<task>/<ds>/<model_slug>_<stamp>/predictions.jsonl
@@ -37,10 +42,15 @@ ap.add_argument("--top-p",       type=float, default=0.9)
 ap.add_argument("--timeout",     type=int,   default=180, help="per-request seconds")
 ap.add_argument("--retries",     type=int,   default=4)
 ap.add_argument("--out-tag",     default=None, help="override auto tag in output dir name")
+ap.add_argument("--base-url",    default="https://openrouter.ai/api/v1",
+                help="OpenAI-compatible API root, e.g. http://127.0.0.1:8080/v1 for llama-server")
+ap.add_argument("--repeat-penalty", type=float, default=None,
+                help="sent as llama.cpp's repeat_penalty (match the adapter eval's 1.05)")
 args = ap.parse_args()
 
-API_KEY = os.environ.get("OPENROUTER_API_KEY")
-if not API_KEY:
+IS_OPENROUTER = "openrouter.ai" in args.base_url
+API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+if IS_OPENROUTER and not API_KEY:
     sys.exit("OPENROUTER_API_KEY not set")
 
 IN_FILE = PROJECT_ROOT / "dataset" / "sft" / args.task / args.ds / f"{args.split}.jsonl"
@@ -53,11 +63,10 @@ OUT_DIR  = PROJECT_ROOT / "output" / "eval" / args.task / args.ds / f"{TAG}_{STA
 OUT_FILE = OUT_DIR / "predictions.jsonl"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-URL = "https://openrouter.ai/api/v1/chat/completions"
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json",
-}
+URL = f"{args.base_url.rstrip('/')}/chat/completions"
+HEADERS = {"Content-Type": "application/json"}
+if API_KEY:
+    HEADERS["Authorization"] = f"Bearer {API_KEY}"
 
 
 def call_openrouter(messages):
@@ -69,6 +78,8 @@ def call_openrouter(messages):
         "temperature": args.temperature,
         "top_p": args.top_p,
     }
+    if args.repeat_penalty is not None:
+        body["repeat_penalty"] = args.repeat_penalty
     delay = 2.0
     last_err = None
     for attempt in range(args.retries + 1):
