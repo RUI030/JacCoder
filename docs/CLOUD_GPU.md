@@ -93,11 +93,37 @@ Keep secrets out of files you might `cat` or share: `~/.bashrc` holds
 | base model in HF cache | 57GB |
 | adapter (`adapter_model.safetensors`, fp32) | 9.6GB |
 | checkpoint (adapter + optimizer state) | 15GB |
-| merged 16-bit model | ~61GB |
+| merged 16-bit model | 57GB |
 
 Checkpoints every `save_steps` fill 200GB fast: set
 `hyperparams.save_total_limit: 2`. Saving a checkpoint also spikes host RAM
 by ~9.5GB (safetensors builds the file in memory).
+
+
+## Memory: what training and export actually need
+
+Training is QLoRA: `load_in_4bit: true` quantizes the original bf16 weights to
+4-bit NF4 on the fly at load (~17GB), the 4-bit base stays frozen, and only the
+16-bit LoRA adapter trains (saved as fp32). The 16-bit export merges the adapter
+into the *original* bf16 shards from the HF cache, one shard at a time, not into
+the 4-bit copy, so nothing is dequantized and requantized; GGUF quantization
+happens once, afterwards. The adapter was trained against the 4-bit base, so the
+merged bf16 model differs slightly from what training saw (standard QLoRA; the
+merged model and its GGUF scored like the unmerged adapter here).
+
+Measured on the RTX PRO 6000 (VRAM from `torch.cuda.max_memory_*` and 1s
+`nvidia-smi` samples, RAM = process RSS; `script/plot_usage.py` for the curves):
+
+| Stage | VRAM peak | Host RAM peak | Time |
+|---|---|---|---|
+| load 4-bit base + adapter | 35.6GB (bf16 and 4-bit copies overlap while quantizing) | 58.2GB | ~5 min |
+| CPT / SFT training (r64, 4096 ctx, packed) | 44.1GB steady | 3.5GB, +~6GB per checkpoint save | — |
+| `save_pretrained_merged(..., "merged_16bit")` | 25.2GB | under the load peak | ~2 min |
+| llama-server Q4_K_M, 16 slots × 8k ctx | ~31GB | small | — |
+
+On a 48GB GPU: loading and merging fit; training at these settings leaves ~4GB
+and may OOM with longer context or a larger batch; a Q8_0 server with 16 × 8k
+slots is tight (lower `-np`). Budget ~64GB+ host RAM for the load peak.
 
 
 ## Training pitfalls found on this run
@@ -174,4 +200,9 @@ llama-server and grades as a non-root user. Things that broke on RunPod:
   `timeout`, runaway allocation as `test_fail`/`memory_cap`, and a spawned
   child process is killed with the group. Embedded postgres daemonizes out of
   the group, so `grade_stream.py` stops it and wipes its data dir between chunks
-  and at the end (it once grew to 1.1TB).
+  and at the end (it once grew to 1.1TB). It reached ~6GB within a single
+  20-sample chunk here, so grade one run at a time on a 30GB container disk.
+- **`/dev/shm` can't hold it.** The RAM disk is mounted `noexec`, and jac
+  unpacks postgres binaries into the same `~/.cache/jac/pg` directory, so
+  `initdb` fails with `Permission denied` and every sample becomes
+  `infra_error`.
