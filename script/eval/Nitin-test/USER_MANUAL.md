@@ -99,11 +99,18 @@ Grades the dataset's own reference solutions on the same toolchain, so the
 report can flag problems whose *reference* fails ("reference-valid rate").
 Run once per split × reference field.
 
+Pass `--only-task`: completion problems also carry an `idiomatic_jac` field (a
+full program, not a continuation), so an unfiltered `idiomatic_jac` run grades
+them as 500 `check_fail`. `report/merge_refs.load_refs` merges both refs files
+by problem id with the later file winning, which then marks every completion
+reference invalid (reference-valid 0%, completion failures attributed to the
+tool). `--workers` is accepted but unused; grading is always sequential.
+
 ```bash
 python script/eval/Nitin-test/wash_refs.py \
-  --split test --field reference_completion --workers 4      # → completion refs
+  --split test --field reference_completion --only-task completion    # → completion refs
 python script/eval/Nitin-test/wash_refs.py \
-  --split test --field idiomatic_jac       --workers 4       # → translation refs
+  --split test --field idiomatic_jac       --only-task translation   # → translation refs
 ```
 
 ### 3c. Failure taxonomy — `build_taxonomy.py`
@@ -198,8 +205,8 @@ python script/eval/Nitin-test/run_eval.py \
 RUN=$(ls -td script/eval/Nitin-test/out/${TAG}_test_* | head -1)
 
 # 2. reference baselines (once per split — reuse across models)
-python script/eval/Nitin-test/wash_refs.py --split test --field reference_completion --workers 4
-python script/eval/Nitin-test/wash_refs.py --split test --field idiomatic_jac       --workers 4
+python script/eval/Nitin-test/wash_refs.py --split test --field reference_completion --only-task completion
+python script/eval/Nitin-test/wash_refs.py --split test --field idiomatic_jac       --only-task translation
 
 # 3. taxonomy
 python script/eval/Nitin-test/build_taxonomy.py \
