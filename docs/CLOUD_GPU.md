@@ -44,6 +44,30 @@ Keep secrets out of files you might `cat` or share: `~/.bashrc` holds
   restart automatically.
 
 
+## `jac mcp` (MCP server for AI-assisted Jac)
+
+- **Every tool that runs code fails as root** (`run_jac`, `graph_visualize`,
+  `execute_command` with `run`/`test`), even for `print("hello")`:
+  `initdb: error: cannot be run as root`. `jac run` always starts the embedded
+  PostgreSQL, which refuses root, and there is no switch to disable it (the docs
+  say there is one persistence stack). The error comes back inside a normal
+  tool result (`isError` unset), so clients show the call as successful. Static
+  tools (`validate_jac`, `check_syntax`, `search_docs`, ...) are unaffected.
+- **Fix:** run the server as a non-root user (the same `jacgrader` used for
+  Nitin grading), e.g. for Claude Code:
+
+  ```bash
+  claude mcp add jac -- runuser -u jacgrader -- env HOME=/home/jacgrader \
+      PATH=/workspace/bin:/usr/local/bin:/usr/bin:/bin /workspace/bin/jac mcp
+  ```
+
+  Other clients: the same `runuser ... jac mcp` as `command` + `args`.
+- Graph state persists across `run_jac` calls (one embedded database per
+  project). `jac db stop` as that user stops the server; deleting
+  `~/.cache/jac/pg/main` clears the data. The user and its cache live on the
+  container disk, so `useradd -m jacgrader` again after a pod reset.
+
+
 ## Hugging Face
 
 - **Downloads crawl (~5MB/s).** Unauthenticated requests are throttled; set
