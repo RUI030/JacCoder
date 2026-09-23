@@ -181,6 +181,14 @@ def relaunch_under_cgroup(mem_max: str = "32G", mem_high: str = "28G") -> None:
     if not sr:
         print("[cgroup] systemd-run not found on PATH; running without cgroup cap")
         return
+    # Containers (RunPod: init = docker-init) ship systemd-run but have no user
+    # bus; exec'ing into it would replace us with a process that just fails.
+    probe = subprocess.run([sr, "--user", "--scope", "--quiet", "--collect", "true"],
+                           capture_output=True, text=True, timeout=15)
+    if probe.returncode != 0:
+        print(f"[cgroup] systemd-run scopes unavailable ({probe.stderr.strip()}); "
+              "running without cgroup cap (eval_jac per-test RSS watchdog still applies)")
+        return
 
     env = {**os.environ, _SENTINEL_ENV: "1"}
     cmd = [
@@ -263,6 +271,9 @@ def main():
         print(f"[run ] chunk {i:03d}  {len(chunk)} samples  → {cd}", flush=True)
         run_chunk(args.grader, args.problems, cd, chunk, args.k, args.timeout)
 
+    # Postgres daemonizes out of the test's process group, so it outlives the
+    # last chunk (holding its data dir) unless stopped here too.
+    purge_jac_pg_cache()
     merge_results(chunk_dirs, args.out_dir)
 
 

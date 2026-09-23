@@ -293,6 +293,48 @@ def parse_pytest_pertest(stdout: str, hidden_tests: str) -> list[dict]:
 
 
 _SYSTEMD_RUN = shutil.which("systemd-run")
+_SCOPES_OK: bool | None = None
+
+
+def _systemd_scopes_available() -> bool:
+    """True iff `systemd-run --user --scope` actually works here (probed once).
+
+    Containers (e.g. RunPod, init = docker-init) ship the binary but have no
+    user bus, so every wrapped command would fail to launch.
+    """
+    global _SCOPES_OK
+    if _SCOPES_OK is None:
+        _SCOPES_OK = bool(_SYSTEMD_RUN) and subprocess.run(
+            [_SYSTEMD_RUN, "--user", "--scope", "--quiet", "--collect", "true"],
+            capture_output=True, timeout=15,
+        ).returncode == 0
+    return _SCOPES_OK
+
+
+_PAGE = os.sysconf("SC_PAGE_SIZE")
+
+
+def _group_rss_bytes(pgid: int) -> int:
+    """Resident memory summed over every live process in process group `pgid`.
+
+    Fallback memory cap when cgroup scopes are unavailable. RLIMIT_AS can't be
+    used: the jac runtime reserves enough virtual address space for its threads
+    that a 12GB RLIMIT_AS fails `start_new_thread` before any real allocation.
+    """
+    total = 0
+    for entry in os.scandir("/proc"):
+        if not entry.name.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry.name}/stat") as f:
+                fields = f.read().rsplit(")", 1)[1].split()
+            if int(fields[2]) != pgid:            # fields after comm: state ppid pgrp ...
+                continue
+            with open(f"/proc/{entry.name}/statm") as f:
+                total += int(f.read().split()[1]) * _PAGE
+        except (OSError, IndexError, ValueError):
+            continue                               # process exited mid-scan
+    return total
 
 
 def _wrap_with_cgroup(command: list[str], mem_limit_bytes: int) -> list[str]:
@@ -303,7 +345,7 @@ def _wrap_with_cgroup(command: list[str], mem_limit_bytes: int) -> list[str]:
     A per-test cgroup covers the entire process tree, so a runaway sample is
     OOM-killed inside its own scope and everything else keeps running.
     """
-    if not _SYSTEMD_RUN or mem_limit_bytes <= 0:
+    if not _systemd_scopes_available() or mem_limit_bytes <= 0:
         return command
     gb = mem_limit_bytes / (1 << 30)
     high = int(mem_limit_bytes * 0.9)
@@ -322,8 +364,12 @@ def run_process(
     mem_limit_bytes: int | None = None,
 ) -> ProcessResult:
     start = time.perf_counter()
+    rss_cap = None
     if mem_limit_bytes:
-        command = _wrap_with_cgroup(command, mem_limit_bytes)
+        if _systemd_scopes_available():
+            command = _wrap_with_cgroup(command, mem_limit_bytes)
+        else:
+            rss_cap = mem_limit_bytes          # polled below; the group is killed on breach
     try:
         process = subprocess.Popen(
             command,
@@ -340,7 +386,27 @@ def run_process(
         )
 
     try:
-        stdout, stderr = process.communicate(timeout=timeout_s)
+        if rss_cap is None:
+            stdout, stderr = process.communicate(timeout=timeout_s)
+        else:
+            deadline = start + timeout_s
+            while True:
+                try:
+                    stdout, stderr = process.communicate(timeout=0.5)
+                    break
+                except subprocess.TimeoutExpired:
+                    if time.perf_counter() >= deadline:
+                        raise
+                    if _group_rss_bytes(process.pid) > rss_cap:
+                        # Same shape as a cgroup OOM kill: returncode -9, classified
+                        # by the caller as test_fail / fail_reason=memory_cap.
+                        os.killpg(process.pid, signal.SIGKILL)
+                        stdout, stderr = process.communicate()
+                        return ProcessResult(
+                            process.returncode, stdout,
+                            (stderr or "") + "\n[grader] killed: process group RSS over memory cap",
+                            (time.perf_counter() - start) * 1000,
+                        )
         return ProcessResult(
             process.returncode,
             stdout,
@@ -725,7 +791,8 @@ def main() -> int:
     parser.add_argument(
         "--per-test-mem-gb",
         type=float, default=12.0,
-        help="RLIMIT_AS cap (GB) on each `jac test` child; runaways are killed "
+        help="memory cap (GB) on each `jac test` process group (cgroup scope, or an RSS "
+             "watchdog where scopes are unavailable); runaways are killed "
              "by the kernel and land as test_fail (WA). 0 disables the cap.",
     )
     args = parser.parse_args()
