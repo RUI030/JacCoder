@@ -5,8 +5,8 @@ recipe:
   name: v13A-sft-r64-seq
   stage: sft
   base_model: ornith-ai/Ornith-1.5-9B
-  adapter: output/adapter/0926-v13/A/cpt/adapter
-  out_dir: output/adapter/0926-v13/A/sft
+  adapter: output/adapter/0926-v13-A/cpt/adapter
+  out_dir: output/adapter/0926-v13-A/sft
   seed: 3407
   max_seq_length: 4096
   load_in_4bit: true

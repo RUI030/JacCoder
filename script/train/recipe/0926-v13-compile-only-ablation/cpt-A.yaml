@@ -6,7 +6,7 @@ recipe:
   stage: cpt
   base_model: ornith-ai/Ornith-1.5-9B
   adapter: ""
-  out_dir: output/adapter/0926-v13/A/cpt
+  out_dir: output/adapter/0926-v13-A/cpt
   seed: 3407
   max_seq_length: 4096
   load_in_4bit: true
