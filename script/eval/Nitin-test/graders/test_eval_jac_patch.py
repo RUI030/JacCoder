@@ -71,6 +71,13 @@ def test_instrument_ignores_eq_inside_strings_and_keeps_message():
     assert 'assert (_jaccoder_got0 == "x") , "msg";;' in out
 
 
+def test_instrument_raw_string_escaped_quote_does_not_close():
+    # r"abc'\"def" is one literal: a backslash keeps the quote even in raw strings.
+    out = instrument_tests('test "t0" {\n    assert (f(r"abc\'\\"def") == False);;\n}\n')
+    assert '_jaccoder_got0 = f(r"abc\'\\"def");' in out
+    assert "assert (_jaccoder_got0 == False);;" in out
+
+
 def test_instrument_leaves_chained_comparison_untouched():
     out = instrument_tests(TESTS)
     assert "assert (h() == h() == h());;" in out

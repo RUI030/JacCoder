@@ -306,9 +306,10 @@ def _skip_string(text: str, i: int) -> int | None:
     if not m or (m.start(1) > i and text[i - 1:i].isalnum()):
         return None
     quote, j = m.group(1), m.end()
-    raw = "r" in text[i:m.start(1)].lower()
     while j < len(text):
-        if text[j] == "\\" and not raw:
+        # A backslash never lets the next char close the literal, raw or not
+        # (r"a\"b" is one string), so skip it either way.
+        if text[j] == "\\":
             j += 2
         elif text.startswith(quote, j):
             return j + len(quote)
