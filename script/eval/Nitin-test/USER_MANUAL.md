@@ -184,10 +184,22 @@ summary.json           # machine-readable form
 per_sample.jsonl       # attribution + counts per model sample
 ```
 
-### Sample report (from `sft_test_09-13_17-28`, n = 1000)
+### Sample report (v1.2 SFT samples from `sft_test_09-13_17-28`, regraded on the 09-16 suite, n = 972)
 
 | metric | overall |
 |---|---|
+| compile rate | 81.3% |
+| pass@1       | 53.2% |
+| testcase pass rate | 83.2% |
+| tool failure | 4 |
+| reference-valid | 99.6% |
+
+Partial buckets (overall): 1–20% = 47, 21–40% = 35, 41–60% = 24,
+61–80% = 37, 81–99% = 50. The same samples scored 49.8% (n = 1000) on the
+09-11 snapshot; the gain is the upstream test repair (28 test_fail → pass),
+not the model. Don't compare numbers across suites.
+
+---|---|
 | compile rate | 81.1% |
 | pass@1       | 49.8% |
 | testcase pass rate | 83.2% |
