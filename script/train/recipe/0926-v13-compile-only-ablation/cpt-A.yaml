@@ -1,10 +1,10 @@
-# v1.3 ablation, run A (baseline): CPT on every v1.3 CPT set EXCEPT
-# Nitin-osp-compile-only (untested OSP), then the shared SFT (sft-A.yaml).
-# Hyperparams copied from 0922-qwen3coder-trueseq-r64; only data/out_dir change.
+# v1.3 ablation, run A (baseline): CPT without Nitin-osp-compile-only.
+# Settings identical to 0910-sequential-r64 except: name, out_dir, adapter path,
+# datasets, and (SFT only) packing: true.
 recipe:
   name: v13A-cpt-r64-seq
   stage: cpt
-  base_model: unsloth/Qwen3-Coder-30B-A3B-Instruct
+  base_model: ornith-ai/Ornith-1.5-9B
   adapter: ""
   out_dir: output/adapter/0926-v13/A/cpt
   seed: 3407
@@ -23,7 +23,6 @@ hyperparams:
   warmup_steps: 5
   weight_decay: 1.0e-3
   save_steps: 100
-  save_total_limit: 2           # r64 checkpoints are ~15GB each
   do_eval: false
   lora_rank: 64
   lora_alpha: 32
