@@ -50,5 +50,15 @@
         "From the schema below, generate the CRUD walker set for '{node}' — create/list/delete/update. Return the code inside a ```jac``` block.",
         "Implement the CRUD walkers for the '{node}' node in the schema below. Output a single ```jac ... ``` block.",
         "Write Jac walker:pub definitions to create, list, delete, and update '{node}' instances given this schema. Respond only with ```jac ... ```."
+    ],
+    "scaffold2impl_partial_full": [
+        "The Jac file below has its bodies stripped to `{ ... }`. Implement ONLY these declarations:\n{names}\nLeave every other `{ ... }` exactly as it is. Respond with the whole file in a single ```jac ... ``` block.",
+        "Fill in the bodies of just the following declarations in this Jac scaffold:\n{names}\nDo not touch the remaining `{ ... }` placeholders. Return the complete file inside ```jac ... ```.",
+        "Complete part of this Jac file: write the bodies for\n{names}\nand keep all other bodies as `{ ... }`. Reply with the full file as one ```jac``` block."
+    ],
+    "scaffold2impl_partial_decls": [
+        "The Jac file below has its bodies stripped to `{ ... }`. Implement these declarations:\n{names}\nReply with only those declarations, fully implemented, in a single ```jac ... ``` block.",
+        "Using the Jac scaffold below as context, write the full implementation of\n{names}\nReturn just those declarations inside ```jac ... ```.",
+        "Write the missing bodies for the following declarations of this Jac file:\n{names}\nOutput only the completed declarations as one ```jac``` block."
     ]
 }

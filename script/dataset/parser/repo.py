@@ -103,16 +103,34 @@ def _find_matching_close(text: str, open_idx: int) -> int:
     return -1
 
 
-def strip_bodies(source: str) -> str:
-    """Return `source` with every def/can/with-entry/impl body replaced by `{ ... }`."""
-    out: list[str] = []
+def body_spans(source: str) -> list[tuple[int, int, int]]:
+    """Return `(head_start, open_at, close)` for every strippable body, in order.
+
+    Bodies nested inside another strippable body are not listed (they go with it).
+    """
+    spans: list[tuple[int, int, int]] = []
     cursor = 0
     for m in _STRIP_HEADS.finditer(source):
-        head_start, open_at = m.start(), m.end("open") - 1
+        head_start, open_at = m.start("head"), m.end("open") - 1
         if open_at < cursor:
             continue
         close = _find_matching_close(source, open_at)
         if close < 0:
+            continue
+        spans.append((head_start, open_at, close))
+        cursor = close
+    return spans
+
+
+def strip_bodies(source: str, keep: set[int] | None = None) -> str:
+    """Return `source` with every def/can/with-entry/impl body replaced by `{ ... }`.
+
+    `keep`: indices into `body_spans(source)` whose bodies stay implemented.
+    """
+    out: list[str] = []
+    cursor = 0
+    for i, (_, open_at, close) in enumerate(body_spans(source)):
+        if keep and i in keep:
             continue
         out.append(source[cursor:open_at])
         out.append("{ ... }")
