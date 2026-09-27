@@ -1,0 +1,78 @@
+{
+  "jac": "jac 0.36.1  (Linux x86_64)",
+  "n": 10,
+  "pass": 10,
+  "flag": false,
+  "rows": [
+    {
+      "origin_id": "reoring__next-shadcn-admin::app/(auth)/layout.client.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "agents-ui__agents-kit::docs/layout.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "annui-org__annui::docs/layout.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "sanidhyy__canva-clone::app/not-found.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "storyofams__react-ui::components/common/InputWrapper/inputWrapper.test.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "Vette1123__movies-streaming-platform::tv-shows/(tv-list)/page.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "prgrms-fe-devcourse__FEDC3_Bigtoria_Off::constants/apiParams.ts",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "shadcnspace__shadcnspace::components/shadcn-space/breadcrumb/breadcrumb-02.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "thangdevalone__modern-ui::app/(docs-group)/docs/components/input/components/input-installation.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "ninetailed-inc__experience.js::playgrounds/next-js/components/Hero.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    }
+  ]
+}

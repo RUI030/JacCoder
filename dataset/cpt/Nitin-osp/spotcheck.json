@@ -1,0 +1,78 @@
+{
+  "jac": "jac 0.36.1  (Linux x86_64)",
+  "n": 10,
+  "pass": 10,
+  "flag": false,
+  "rows": [
+    {
+      "origin_id": "osp_A_05__mm3_v36",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_BigBirdReturns__axm-world__299",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "osp_A_17__mm3_v29",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_janez89__mongoose-materialized__8",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "osp_A_07__composer_v24",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_Restrova__restrova-platform__45",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_hanlin-afk__rt-cinfer-web__1",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "osp__powerslave94__botanicapp__51__refactor",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_lost-rob0t__llm-log__10",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "osp_A_09__composer_v10",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    }
+  ]
+}

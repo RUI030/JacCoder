@@ -1,0 +1,144 @@
+{
+    "train": {
+        "count": 11478,
+        "length": {
+            "unit": "characters",
+            "avg": 772.19,
+            "median": 658.0,
+            "std": 415.13,
+            "min": 216,
+            "max": 7493
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 2729,
+            "501-1000": 6542,
+            "1001-2000": 1971,
+            "2001-5000": 234,
+            "5001-10000": 2,
+            ">10000": 0
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 11478,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 11478,
+                "graph": 0,
+                "osp": 0
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 11478,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "jac",
+                "class": "function",
+                "source": "code",
+                "count": 11478
+            }
+        ],
+        "tokens": {
+            "unit": "tokens",
+            "avg": 229.81,
+            "median": 197.0,
+            "std": 120.62,
+            "min": 76,
+            "max": 1644,
+            "total": 2637773,
+            "p95": 447,
+            "over_4096": 0,
+            "histogram": {
+                "<=128": 1167,
+                "129-256": 7126,
+                "257-512": 2825,
+                "513-1024": 336,
+                "1025-2048": 24,
+                "2049-4096": 0,
+                ">4096": 0
+            }
+        },
+        "answer_tokens": {
+            "unit": "tokens",
+            "avg": 126.22,
+            "median": 101.0,
+            "std": 88.24,
+            "min": 24,
+            "max": 1126,
+            "total": 1448739,
+            "p95": 289,
+            "over_4096": 0,
+            "histogram": {
+                "<=128": 7460,
+                "129-256": 3184,
+                "257-512": 756,
+                "513-1024": 74,
+                "1025-2048": 4,
+                "2049-4096": 0,
+                ">4096": 0
+            }
+        }
+    },
+    "valid": {
+        "count": 0,
+        "length": {
+            "unit": "characters",
+            "avg": 0,
+            "median": 0,
+            "std": 0,
+            "min": 0,
+            "max": 0
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 0,
+            "1001-2000": 0,
+            "2001-5000": 0,
+            "5001-10000": 0,
+            ">10000": 0
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 0,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 0,
+                "graph": 0,
+                "osp": 0
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 0,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": []
+    },
+    "rejected": {
+        "weak_tail_cpt_only": 2733,
+        "eval_denylist": 762,
+        "audit_fail": 157,
+        "no_def": 10,
+        "duplicate": 4
+    }
+}

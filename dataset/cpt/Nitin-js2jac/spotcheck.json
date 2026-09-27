@@ -1,0 +1,78 @@
+{
+  "jac": "jac 0.36.1  (Linux x86_64)",
+  "n": 10,
+  "pass": 10,
+  "flag": false,
+  "rows": [
+    {
+      "origin_id": "reoring__next-shadcn-admin::app/(dashboard)/(features)/chats/components/chat-input.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "agents-ui__agents-kit::docs/utils/metadata.ts",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "numandev1__github-emoji-extension::pages/Options/Options.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "sanidhyy__canva-clone::features/auth/utils.ts",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "qingzi-king__agile-mobile::components/progress/index.ts",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "aelew__devterms::app/(browse)/layout.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "prgrms-fe-devcourse__FEDC3_Bigtoria_Off::constants/auth.ts",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "shadcnspace__shadcnspace::components/shadcn-space/button-group/button-group-06.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "thangdevalone__modern-ui::app/(docs-group)/docs/components/sheet/components/sheet-installation.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "ninetailed-inc__experience.js::playgrounds/next-js/components/Product.tsx",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    }
+  ]
+}

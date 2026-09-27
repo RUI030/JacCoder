@@ -1,0 +1,78 @@
+{
+  "jac": "jac 0.36.1  (Linux x86_64)",
+  "n": 10,
+  "pass": 10,
+  "flag": false,
+  "rows": [
+    {
+      "origin_id": "EliPoli64_chivoradar_scraper__src_models_py::TierPrecio",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "obahamonde_vipere_api__kubernetes_schemas_models_py::User",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "WeryZebra_Yue_pulse_backend__models_form_py::Message",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "okteto_guestbook_api__app_model_py::Entry",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "rexcare367_AI_Analytics_BackEnd__models_admin_py::Admin",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "eclipse_csi_otterdog__otterdog_webapp_db_models_py::PullRequestModel",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "ima_helikoptaaa_dailytrack_backend__app_schemas_token_py::RefreshTokenBase",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "GustavoSwDaniel_e_nowshop_api_order__src_enowshop_domain_noql_models_py::Items",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "stufio_com_stufio_modules_locale__stufio_modules_locale_models_translation_py::LocaleTranslation",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "DerNurLor_enexus__backend_app_models_chat_settings_py::ChatSettings",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    }
+  ]
+}

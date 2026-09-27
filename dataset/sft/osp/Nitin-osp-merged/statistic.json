@@ -1,0 +1,164 @@
+{
+    "train": {
+        "count": 1933,
+        "length": {
+            "unit": "characters",
+            "avg": 4232.36,
+            "median": 1894,
+            "std": 3721.87,
+            "min": 944,
+            "max": 17535
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 14,
+            "1001-2000": 999,
+            "2001-5000": 244,
+            "5001-10000": 472,
+            ">10000": 204
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 1933,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 0,
+                "graph": 0,
+                "osp": 1933
+            },
+            "source": {
+                "agent": 1933,
+                "article": 0,
+                "code": 0,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "jac",
+                "class": "osp",
+                "source": "agent",
+                "count": 1933
+            }
+        ],
+        "tokens": {
+            "unit": "tokens",
+            "avg": 1110.08,
+            "median": 538,
+            "std": 933.44,
+            "min": 251,
+            "max": 4051,
+            "total": 2145782,
+            "p95": 2908,
+            "over_4096": 0,
+            "histogram": {
+                "<=128": 0,
+                "129-256": 4,
+                "257-512": 923,
+                "513-1024": 284,
+                "1025-2048": 316,
+                "2049-4096": 406,
+                ">4096": 0
+            }
+        },
+        "answer_tokens": {
+            "unit": "tokens",
+            "avg": 669.31,
+            "median": 466,
+            "std": 460.68,
+            "min": 172,
+            "max": 3165,
+            "total": 1293778,
+            "p95": 1644,
+            "over_4096": 0,
+            "histogram": {
+                "<=128": 0,
+                "129-256": 131,
+                "257-512": 917,
+                "513-1024": 466,
+                "1025-2048": 403,
+                "2049-4096": 16,
+                ">4096": 0
+            }
+        }
+    },
+    "valid": {
+        "count": 0,
+        "length": {
+            "unit": "characters",
+            "avg": 0,
+            "median": 0,
+            "std": 0,
+            "min": 0,
+            "max": 0
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 0,
+            "1001-2000": 0,
+            "2001-5000": 0,
+            "5001-10000": 0,
+            ">10000": 0
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 0,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 0,
+                "graph": 0,
+                "osp": 0
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 0,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": []
+    },
+    "rejected": {
+        "guard_fail": 113,
+        "duplicate_of=osp_B_22__mm3_v10": 40,
+        "duplicate_of=osp_B_22": 20,
+        "osp_holdout": 18,
+        "duplicate_of=osp_A_01__composer_v31": 10,
+        "duplicate_of=osp_A_08__composer_v1": 8,
+        "duplicate_of=osp_A_08__composer_v33": 8,
+        "duplicate_of=osp_B_22__mm3_v42": 6,
+        "duplicate_of=osp_A_01__mm3_v9": 5,
+        "duplicate_of=osp_A_01__composer_v27": 4,
+        "duplicate_of=osp_A_01__composer_v2": 4,
+        "duplicate_of=osp_A_01__composer_v3": 4,
+        "duplicate_of=osp_A_08__composer_v6": 3,
+        "duplicate_of=osp_A_08__composer_v38": 3,
+        "too_long>4096": 3,
+        "duplicate_of=osp_A_01__mm3_v2": 2,
+        "duplicate_of=osp_A_08__composer_v54": 2,
+        "duplicate_of=osp_A_12__composer_v1": 2,
+        "duplicate_of=osp_A_12__composer_v40": 2,
+        "duplicate_of=osp_A_01__composer_v44": 1,
+        "duplicate_of=osp_B_22__mm3_v21": 1,
+        "duplicate_of=osp_A_04__composer_v5": 1,
+        "duplicate_of=osp_A_08__composer_v32": 1,
+        "duplicate_of=osp_A_12__composer_v35": 1,
+        "duplicate_of=osp_A_12__composer_v14": 1
+    }
+}

@@ -1,0 +1,78 @@
+{
+  "jac": "jac 0.36.1  (Linux x86_64)",
+  "n": 10,
+  "pass": 10,
+  "flag": false,
+  "rows": [
+    {
+      "origin_id": "testfix__osp_A_05__mm3_v76",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__iss_matiaszanolli__ByroRedux__3661",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__osp_B_32__mm3_v53",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__iss_lengocanh2005it__wispace-bot__412",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__osp_D_65__mm3_v11",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__iss_danvk__mapsnap__320",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__iss_mekoco__sample-shop__3",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__osp_A_05__mm3_v22",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__iss_awtoau__pluribus__64",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "testfix__iss_dnslin__hello-algo-interactive__1",
+      "pass": true,
+      "cmd": "test main.jac",
+      "codes": [],
+      "tail": ""
+    }
+  ]
+}

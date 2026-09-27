@@ -1,0 +1,88 @@
+{
+  "jac": "jac 0.36.1  (Linux x86_64)",
+  "n": 10,
+  "pass": 8,
+  "flag": true,
+  "rows": [
+    {
+      "origin_id": "osp_A_12__mm3_v32",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_EffortlessMetrics__perl-lsp-swarm__12680",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E1052",
+        "W1036",
+        "W1051"
+      ],
+      "tail": "lt ++> f_effect ++> f_priv ++> f_warn;\n  356 |     root ++> comp_recursive ++> comp_unrelated;\nhelp: Often fixed by adding a more specific type annotation to the relevant declaration (e.g., 'list[Task]' instead of bare 'list', or annotating an unannotated parameter or attribute). Can also indicate an unresolved import, a forward reference the checker cannot bind, or fallout from an upstream error."
+    },
+    {
+      "origin_id": "osp_A_13__composer_v40",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_markhuangai__dense-mem__244",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_ixigo__agentify__384",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_the-static-collective__the-haunted-toaster__121",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_dunay2__dvt__2599",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_kaby76__Trash__713",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "iss_open-constructs__cdk-terrain__354",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E1032",
+        "W1036",
+        "W1051",
+        "W3005",
+        "W3037"
+      ],
+      "tail": "s_on = self.depends_on + [other_label];\n   66 |     }\n⚠ warning[W3005]: Empty parentheses can be removed [remove-empty-parens]\n  --> main.jac:74:5\n   72 |     has deps: list = [];        # children: Construct nodes this depends on\n   73 | \n   74 |     def is_empty() -> bool {\n      |     ^^^^^^^^^^^^^^^^^^^^^^^^\n   75 |         return len(self.resources) == 0 and len(self.deps) == 0;\n   76 |     }"
+    },
+    {
+      "origin_id": "iss_OpenIntegrationEngine__engine__337",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    }
+  ]
+}

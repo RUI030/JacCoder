@@ -1,0 +1,133 @@
+{
+  "jac": "jac 0.36.1  (Linux x86_64)",
+  "n": 10,
+  "pass": 3,
+  "flag": true,
+  "rows": [
+    {
+      "origin_id": "jachacks-sf::Stepodkelly__Ghost-Rider::engine__ai__models.jac",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "jachacks-spring::krishs09-123__jachacks-engagement-auditor::pages__Start.cl.jac",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "jachacks-sf::sidbar258__jachacks-fintech::main.jac",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E0005",
+        "W1051",
+        "W1100"
+      ],
+      "tail": "   23 |         return <ClientApp/>;\n      |                 ^^^^^^^^^\n   24 |     }\n   25 | }\nhelp: Often fixed by adding a more specific type annotation to the relevant declaration (e.g., 'list[Task]' instead of bare 'list', or annotating an unannotated parameter or attribute). Can also indicate an unresolved import, a forward reference the checker cannot bind, or fallout from an upstream error."
+    },
+    {
+      "origin_id": "jachacks-sf::arjunrawal1__video-redaction-jac-hacks::components__FramePanel.jac",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E1032",
+        "E1055",
+        "W1051",
+        "W1100"
+      ],
+      "tail": "        ^^^^\n   87 |                             </span>\n   88 |                         </li>\nhelp: Often fixed by adding a more specific type annotation to the relevant declaration (e.g., 'list[Task]' instead of bare 'list', or annotating an unannotated parameter or attribute). Can also indicate an unresolved import, a forward reference the checker cannot bind, or fallout from an upstream error."
+    },
+    {
+      "origin_id": "jachacks-sf::samsonchang2028__JacHacks2026::schemas__smoke_civic.jac",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E1032",
+        "E1053",
+        "E1054",
+        "E1055",
+        "W1037",
+        "W1051",
+        "W1100",
+        "W2001",
+        "W3005"
+      ],
+      "tail": "printed report is stable between runs.\n   51 |     by_name: dict[str, Project] = {};\n⚠ warning[W3005]: Empty parentheses can be removed [remove-empty-parens]\n  --> main.jac:68:1\n   66 | \n   67 | \n   68 | def civic_evidence_links() -> list[dict[str, any]] {\n      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   69 |     views: list[dict[str, any]] = [];\n   70 |     visited: list[str] = [];"
+    },
+    {
+      "origin_id": "jachacks-spring::hboujmai__EvacuAI::jac__graph.jac",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E0027",
+        "E1116",
+        "W2003"
+      ],
+      "tail": "ocation(name=\"Shelter\", risk=0);\n   18 | \n⚠ warning[W2003]: 'Shelter' is defined but never used\n  --> main.jac:17:9\n   15 |         Hospital = root ++> Location(name=\"Hospital\", risk=1);\n   16 |         School = root ++> Location(name=\"School\", risk=6);\n   17 |         Shelter = root ++> Location(name=\"Shelter\", risk=0);\n      |         ^^^^^^^\n   18 | \n   19 |         Downtown +>:Road:> Hospital;"
+    },
+    {
+      "origin_id": "jachacks-sf::rxu240__comeagain-::components__SegmentList.cl.jac",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E1002",
+        "E1032",
+        "E1053",
+        "E1055",
+        "W1051",
+        "W1100",
+        "W2003",
+        "W2058"
+      ],
+      "tail": "None { return seg.headline; }\n⚠ warning[W2058]: Comparison to None should use 'is' or 'is not', not '=='\n  --> main.jac:42:8\n   40 |         if worst == None or d.score < worst.score { worst = d; }\n   41 |     }\n   42 |     if worst == None { return seg.headline; }\n      |        ^^^^^^^^^^^^^\n   43 |     return worst.name + \" \" + String(Math.round(worst.score)) + \" · \" + worst.headline;\n   44 | }"
+    },
+    {
+      "origin_id": "jachacks-2026::Anay162__agewise::graph__walkers__records__transfer_need_detector.jac",
+      "pass": true,
+      "cmd": "check main.jac",
+      "codes": [],
+      "tail": ""
+    },
+    {
+      "origin_id": "jachacks-2026::Dhravidk__TraceForge::scripts__validate_gold_annotations.jac",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E0002",
+        "E0006",
+        "E0022",
+        "W1037",
+        "W1051",
+        "W3005",
+        "W3036"
+      ],
+      "tail": "ent(\"annotation_path\", help=\"Path to the gold annotation JSON file.\");\n⚠ warning[W3036]: Mutable default argument 'list' — use None and assign inside the function [mutable-default]\n  --> main.jac:125:10\n  123 | }\n  124 | \n  125 | def main(arg_list: list[str] = []) -> int {\n      |          ^^^^^^^^^^^^^^^^^^^^^^^^\n  126 |     parser = build_parser();\n  127 |     args = parser.parse_args(arg_list);"
+    },
+    {
+      "origin_id": "jachacks-spring::Anbu-00001__CivicMesh::civicmesh__components__ActionPlan.impl.jac",
+      "pass": false,
+      "cmd": "check main.jac",
+      "codes": [
+        "E0001",
+        "E0002",
+        "E0004",
+        "E0005",
+        "E0022",
+        "E0030",
+        "E1032",
+        "E1053",
+        "E1055",
+        "W1036",
+        "W1050",
+        "W1051",
+        "W2001",
+        "W2002"
+      ],
+      "tail": "= \"applied\";\n  350 |         done_count = done_count + 1;\n      |                      ^^^^^^^^^^\n  351 |     } except Exception as _ex {}\n  352 | }\n⚠ warning[W2002]: Unreachable code detected\n  --> main.jac:301:19\n  299 |                 >\n  300 |                     Mark applied\n  301 |                 </button>}\n      |                   ^^^^^^\n  302 |             </div>\n  303 |         </div>;"
+    }
+  ]
+}

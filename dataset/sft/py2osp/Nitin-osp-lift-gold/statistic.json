@@ -1,0 +1,148 @@
+{
+    "train": {
+        "count": 325,
+        "length": {
+            "unit": "characters",
+            "avg": 6208.83,
+            "median": 5461,
+            "std": 2564.37,
+            "min": 2383,
+            "max": 14794
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 0,
+            "1001-2000": 0,
+            "2001-5000": 144,
+            "5001-10000": 148,
+            ">10000": 33
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 325,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 0,
+                "graph": 30,
+                "osp": 295
+            },
+            "source": {
+                "agent": 325,
+                "article": 0,
+                "code": 0,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": [
+            {
+                "format": "jac",
+                "class": "graph",
+                "source": "agent",
+                "count": 30
+            },
+            {
+                "format": "jac",
+                "class": "osp",
+                "source": "agent",
+                "count": 295
+            }
+        ],
+        "tokens": {
+            "unit": "tokens",
+            "avg": 1751.74,
+            "median": 1527,
+            "std": 717.38,
+            "min": 719,
+            "max": 4069,
+            "total": 569317,
+            "p95": 3190,
+            "over_4096": 0,
+            "histogram": {
+                "<=128": 0,
+                "129-256": 0,
+                "257-512": 0,
+                "513-1024": 32,
+                "1025-2048": 195,
+                "2049-4096": 98,
+                ">4096": 0
+            }
+        },
+        "answer_tokens": {
+            "unit": "tokens",
+            "avg": 995.73,
+            "median": 861,
+            "std": 460.44,
+            "min": 363,
+            "max": 2574,
+            "total": 323613,
+            "p95": 1985,
+            "over_4096": 0,
+            "histogram": {
+                "<=128": 0,
+                "129-256": 0,
+                "257-512": 27,
+                "513-1024": 175,
+                "1025-2048": 110,
+                "2049-4096": 13,
+                ">4096": 0
+            }
+        }
+    },
+    "valid": {
+        "count": 0,
+        "length": {
+            "unit": "characters",
+            "avg": 0,
+            "median": 0,
+            "std": 0,
+            "min": 0,
+            "max": 0
+        },
+        "histogram": {
+            "<=100": 0,
+            "101-200": 0,
+            "201-500": 0,
+            "501-1000": 0,
+            "1001-2000": 0,
+            "2001-5000": 0,
+            "5001-10000": 0,
+            ">10000": 0
+        },
+        "property": {
+            "format": {
+                "diff": 0,
+                "jac": 0,
+                "markdown": 0,
+                "repo": 0,
+                "session": 0
+            },
+            "class": {
+                "fullstack": 0,
+                "function": 0,
+                "graph": 0,
+                "osp": 0
+            },
+            "source": {
+                "agent": 0,
+                "article": 0,
+                "code": 0,
+                "docs": 0,
+                "other": 0
+            }
+        },
+        "combinations": []
+    },
+    "rejected": {
+        "no_input_source": 194,
+        "guard_fail": 22,
+        "too_long>4096": 2
+    }
+}
