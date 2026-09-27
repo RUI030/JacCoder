@@ -1,0 +1,55 @@
+# v1.3 ablation, run A (baseline): CPT on every v1.3 CPT set EXCEPT
+# Nitin-osp-compile-only (untested OSP), then the shared SFT (sft-A.yaml).
+# Hyperparams copied from 0922-qwen3coder-trueseq-r64; only data/out_dir change.
+recipe:
+  name: v13A-cpt-r64-seq
+  stage: cpt
+  base_model: unsloth/Qwen3-Coder-30B-A3B-Instruct
+  adapter: ""
+  out_dir: output/adapter/0926-v13/A/cpt
+  seed: 3407
+  max_seq_length: 4096
+  load_in_4bit: true
+  text_only: true
+
+hyperparams:
+  epochs: 1
+  batch_size: 1
+  grad_acc: 10
+  lr: 5.0e-5
+  embed_lr: 0
+  optimizer: adamw_8bit
+  scheduler: linear
+  warmup_steps: 5
+  weight_decay: 1.0e-3
+  save_steps: 100
+  save_total_limit: 2           # r64 checkpoints are ~15GB each
+  do_eval: false
+  lora_rank: 64
+  lora_alpha: 32
+  lora_dropout: 0
+  rslora: true
+  bias: none
+  grad_checkpt: unsloth
+  packing: true
+  target_module:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+mixing:
+  strategy: sequential
+
+# Ordered basic -> advanced. Reorder here to change the curriculum.
+datasets:
+  - name: Ayush-JacDocs-26Sept
+  - name: Nitin-composer-fn
+  - name: Nitin-js2jac
+  - name: Nitin-farm
+  - name: Nitin-jachacks
+  - name: Nitin-osp
+  - name: Rui-jacapp-4
