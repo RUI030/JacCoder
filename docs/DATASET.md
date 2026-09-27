@@ -34,6 +34,8 @@ Not sure if we can use some tools to make more accurate classification
 | **qa**              | answer jac concepts                      |         |
 | **diff**            | given v1 and commit message, complete v2 | ⭕      |
 | **session**         | Claude code session history for training |         |
+| **code_fix**        | given task, broken code and compiler error, output the fixed code | ⭕      |
+| **test_gen**        | given a Jac program, write a `test` suite that passes `jac test` | ⭕      |
 Is code means we can run jac check, jac run,...etc as validation gate.
 \<TODO\> May have small set of code that has test bench
 Current code may not have `with entry {}` block
@@ -179,3 +181,31 @@ QA set genrated by Opus.
 
 ## Session
 > Under construction. Go orange :'<
+
+## Code Fix
+Source: `jac-data-gen/data/osp_repair/code_fix.jsonl` (1,004 rows). A model's failed OSP attempt paired with a
+verified passing version of the same task (`jac check` + `jac test` PASS). The error is the real compiler output.
+Rows over 4k tokens are dropped.
+### SFT
+```json
+"messages":
+    [
+        {"role": "system", "content": "SYSTEM_PROMPT"},
+        {"role": "user", "content": "TASK\n```jac\nBROKEN_CODE\n```\nCompiler error:\n```\nERROR\n```\nFix the program."},
+        {"role": "assistant", "content": "```jac\nFIXED_CODE\n```"}
+    ]
+```
+
+## Test Gen
+Source: `jac-data-gen/data/osp_repair/test_fix.jsonl` (1,449 rows). Uses the program and its verified passing
+test suite (`fixed_tests`); the broken test attempt is not used. Tests are LLM-written from the problem + program,
+not snapshots of program output, so they may also appear in CPT.
+### SFT
+```json
+"messages":
+    [
+        {"role": "system", "content": "SYSTEM_PROMPT"},
+        {"role": "user", "content": "Write Jac tests for this program:\n```jac\nPROGRAM\n```"},
+        {"role": "assistant", "content": "```jac\nTEST_SUITE\n```"}
+    ]
+```
