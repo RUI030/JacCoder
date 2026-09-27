@@ -202,6 +202,7 @@ def main():
             "--chunk-size", "20",
             "--k",          args.k,
             "--timeout",    str(args.timeout),
+            "--workers",    str(args.workers),
         ],
     ).returncode
     if rc:

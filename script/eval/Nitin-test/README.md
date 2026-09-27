@@ -10,7 +10,7 @@ script/eval/Nitin-test/
 ├── README.md
 ├── PROVENANCE.md              upstream commit, refresh procedure
 ├── data/function/v1/
-│   ├── public/{dev,test}.jsonl    prompts + visible prefix (400 / 1000 rows)
+│   ├── public/{dev,test}.jsonl    prompts + visible prefix (394 / 972 rows)
 │   ├── private/{dev,test}.jsonl   hidden refs + test blocks — never train on
 │   ├── manifest.json, clusters.jsonl, denylist_*
 │   └── README.md

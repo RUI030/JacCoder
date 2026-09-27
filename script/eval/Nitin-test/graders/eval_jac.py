@@ -78,6 +78,12 @@ FENCED_JAC_RE = re.compile(r"```jac\s*\n?(.*?)```", re.IGNORECASE | re.DOTALL)
 ANY_FENCE_RE = re.compile(r"```")
 TOKEN_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
+# The 0.36 native test runner mishandles modules whose functions are demoted
+# to Python-only ("no tests ran") and can segfault on demoted annexes. Server
+# codespace keeps CPython semantics for graded tests; see
+# scripts/eval/repair_function_eval_tests.py for the suite-repair counterpart.
+JAC_TOML_SERVER = '[build]\ndefault_codespace = "server"\n'
+
 FEATURE_PATTERNS: dict[str, re.Pattern[str]] = {
     "node": re.compile(r"(?m)^\s*node(?::\w+)?\s+\w+\s*\{"),
     "edge": re.compile(r"(?m)^\s*edge(?::\w+)?\s+\w+\s*\{"),
@@ -114,7 +120,7 @@ RANGE_LEN_RE = re.compile(r"\brange\s*\(\s*len\s*\(")
 INFRA_ERROR_RE = re.compile(
     r"embedded postgres|postgres not ready|could not connect to (?:the )?database|"
     r"connection to server.*failed|initdb|database system is starting up|"
-    r"No space left on device",
+    r"No space left on device|too many clients already",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -276,20 +282,187 @@ def reference_diagnostics(problem: dict[str, Any], source: str) -> dict[str, Any
     return result
 
 
-# --- JacCoder patch: parse pytest per-test pass/fail from `jac test` stdout ---
-# Kept minimal so upstream refresh from jac-data-gen re-applies cleanly.
-# `jac 0.36.0` runs pytest under the hood; latest main is a custom runner and
-# will need a different parser (see PROVENANCE.md).
-_TEST_NAME_RE = __import__("re").compile(r'^\s*test\s+"([^"]+)"\s*\{', __import__("re").MULTILINE)
-_PYTEST_FAILED_RE = __import__("re").compile(r"^FAILED\s+\S+::(\S+)", __import__("re").MULTILINE)
+# --- JacCoder patch: per-test results + actual values from `jac test -v` ---
+# `jac 0.36.1` runs pytest (+xdist) under the hood; latest main is a custom
+# runner and will need a different parser (see PROVENANCE.md).
+_TEST_NAME_RE = re.compile(r'^\s*test\s+"([^"]+)"\s*\{', re.MULTILINE)
+_TEST_BLOCK_OPEN_RE = re.compile(r'test\s+"([^"]+)"\s*\{')
+# -v lines: "[gw0] [ 50%] PASSED f.jac::t1" (xdist) or "f.jac::t1 PASSED [ 50%]",
+# plus "FAILED f.jac::t0 - ..." / "ERROR f.jac::t0" in the short summary.
+_PYTEST_VERDICT_RES = (
+    re.compile(r"^(?:\[gw\d+\]\s+\[\s*\d+%\]\s+)?(PASSED|FAILED|ERROR)\s+\S+::(\S+)", re.MULTILINE),
+    re.compile(r"^\S+::(\S+)\s+(PASSED|FAILED|ERROR)\b", re.MULTILINE),
+)
+_PYTEST_SECTION_RE = re.compile(r"^_{3,} (?:ERROR at \w+ of )?(\S+) _{3,}$")
+_ACTUAL_TAG = "@@ACTUAL"
+_ACTUAL_RE = re.compile(rf"^{_ACTUAL_TAG} (\S+) (\d+) (.*)$", re.MULTILINE)
+_ACTUAL_LIMIT = 1000
+_STRING_PREFIX_RE = re.compile(r"[rRbBfFuU]{0,2}(\"\"\"|'''|\"|')")
+
+
+def _skip_string(text: str, i: int) -> int | None:
+    """If a string literal starts at text[i], return the index past its end."""
+    m = _STRING_PREFIX_RE.match(text, i)
+    if not m or (m.start(1) > i and text[i - 1:i].isalnum()):
+        return None
+    quote, j = m.group(1), m.end()
+    raw = "r" in text[i:m.start(1)].lower()
+    while j < len(text):
+        if text[j] == "\\" and not raw:
+            j += 2
+        elif text.startswith(quote, j):
+            return j + len(quote)
+        else:
+            j += 1
+    return len(text)
+
+
+def _split_top_level(text: str, seps: tuple[str, ...]) -> list[tuple[int, str]]:
+    """(index, sep) of each separator outside strings/brackets."""
+    hits, depth, i = [], 0, 0
+    while i < len(text):
+        end = _skip_string(text, i)
+        if end is not None:
+            i = end
+            continue
+        ch = text[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif depth == 0:
+            sep = next((s for s in seps if text.startswith(s, i)), None)
+            if sep:
+                hits.append((i, sep))
+                i += len(sep)
+                continue
+        i += 1
+    return hits
+
+
+def _matching_close(text: str, open_idx: int) -> int | None:
+    depth, i = 0, open_idx
+    while i < len(text):
+        end = _skip_string(text, i)
+        if end is not None:
+            i = end
+            continue
+        if text[i] in "([{":
+            depth += 1
+        elif text[i] in ")]}":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return None
+
+
+def _instrument_assert(stmt: str, name: str, k: int) -> str | None:
+    """`assert (L == R)[, msg]` -> bind L, print its repr, assert on the binding."""
+    body = stmt.strip()
+    if not body.startswith("assert"):
+        return None
+    rest = body[len("assert"):].strip()
+    if rest.startswith("("):
+        close = _matching_close(rest, 0)
+        if close is None:
+            return None
+        inner, trailing = rest[1:close], rest[close + 1:]
+    else:
+        commas = _split_top_level(rest, (",",))
+        cut = commas[0][0] if commas else len(rest)
+        inner, trailing = rest[:cut], rest[cut:]
+    eqs = [(i, s) for i, s in _split_top_level(inner, ("==", "!=", "<=", ">=")) if s == "=="]
+    if len(eqs) != 1 or len(_split_top_level(inner, ("==", "!=", "<=", ">="))) != 1:
+        return None
+    lhs, rhs = inner[:eqs[0][0]].strip(), inner[eqs[0][0] + 2:].strip()
+    if not lhs or not rhs:
+        return None
+    var = f"_jaccoder_got{k}"
+    indent = stmt[: len(stmt) - len(stmt.lstrip())]
+    return (f"{indent}{var} = {lhs};"
+            f"{indent}print(\"{_ACTUAL_TAG} {name} {k} \" + repr({var}));"
+            f"{indent}assert ({var} == {rhs}){trailing}")
+
+
+def instrument_tests(hidden_tests: str) -> str:
+    """Rewrite each `assert (L == R)` in each test block so a failing test's
+    captured stdout carries `@@ACTUAL <test> <k> <repr(L)>`. Statements that
+    don't parse as a single top-level `==` are left untouched."""
+    out, pos = [], 0
+    for m in _TEST_BLOCK_OPEN_RE.finditer(hidden_tests):
+        if m.start() < pos:
+            continue
+        close = _matching_close(hidden_tests, m.end() - 1)
+        if close is None:
+            break
+        body = hidden_tests[m.end():close]
+        cuts = [i for i, _ in _split_top_level(body, (";",))]
+        pieces, start = [], 0
+        for k, cut in enumerate(cuts):
+            stmt = body[start:cut]
+            pieces.append((_instrument_assert(stmt, m.group(1), k) or stmt) + ";")
+            start = cut + 1
+        pieces.append(body[start:])
+        out += [hidden_tests[pos:m.end()], "".join(pieces), "}"]
+        pos = close + 1
+    out.append(hidden_tests[pos:])
+    return "".join(out)
 
 
 def parse_pytest_pertest(stdout: str, hidden_tests: str) -> list[dict]:
-    """Given jac test stdout and the raw test_blocks string, return
-    [{"name": "t0", "passed": bool}, ...] in declaration order."""
-    all_names = _TEST_NAME_RE.findall(hidden_tests or "")
-    failed = {m.split(" ")[0] for m in _PYTEST_FAILED_RE.findall(stdout or "")}
-    return [{"name": n, "passed": n not in failed} for n in all_names]
+    """Per-test results from `jac test -v` stdout, in declaration order:
+    [{"name", "passed": bool | None, "error"?, "actual"?}]. `passed` is None
+    when the test never reported a verdict (collection/import failure)."""
+    verdict: dict[str, str] = {}
+    for rx in _PYTEST_VERDICT_RES:
+        for m in rx.finditer(stdout or ""):
+            status, name = m.groups() if m.group(1) in ("PASSED", "FAILED", "ERROR") else m.groups()[::-1]
+            if verdict.get(name) not in ("FAILED", "ERROR"):
+                verdict[name] = status
+
+    errors: dict[str, str] = {}
+    section = None
+    for line in (stdout or "").splitlines():
+        head = _PYTEST_SECTION_RE.match(line)
+        if head:
+            section = head.group(1)
+        elif line.startswith("=") and "short test summary" in line:
+            section = None
+        elif section and line.startswith("E   ") and section not in errors:
+            errors[section] = line[4:].strip()[:300]
+    actuals = {m.group(1): m.group(3)[:_ACTUAL_LIMIT] for m in _ACTUAL_RE.finditer(stdout or "")}
+
+    rows = []
+    for name in _TEST_NAME_RE.findall(hidden_tests or ""):
+        v = verdict.get(name)
+        row: dict[str, Any] = {"name": name, "passed": None if v is None else v == "PASSED"}
+        if v in ("FAILED", "ERROR"):
+            err = errors.get(name, "")
+            if err:
+                row["error"] = err
+            # The last @@ACTUAL is the failing assert only if it failed as an
+            # assert; on an exception it belongs to an earlier, passing one.
+            if name in actuals and err.startswith("AssertionError"):
+                row["actual"] = actuals[name]
+        rows.append(row)
+    return rows
+
+
+_LOG_LIMIT = 256 * 1024
+
+
+def write_log(log_dir: Path | None, problem_id: str, sample_id: Any,
+              stages: list[tuple[str, "ProcessResult"]]) -> None:
+    """Full stdout/stderr of each jac stage (tail-capped); holds hidden-test text."""
+    if log_dir is None:
+        return
+    parts = []
+    for stage, res in stages:
+        parts.append(f"===== {stage} rc={res.returncode} timed_out={res.timed_out} =====\n")
+        for label, text in (("stdout", res.stdout), ("stderr", res.stderr)):
+            parts.append(f"----- {label} -----\n{(text or '')[-_LOG_LIMIT:]}\n")
+    (log_dir / f"{problem_id}__{sample_id}.log").write_text("".join(parts), encoding="utf-8")
 
 
 _SYSTEMD_RUN = shutil.which("systemd-run")
@@ -459,6 +632,16 @@ def set_infra_error(
     )
 
 
+def entrypoints(problem: dict[str, Any]) -> list[str]:
+    """Entrypoint names for the annex import header (empty if unknown)."""
+    value = problem.get("entrypoint")
+    if value is None:
+        return []
+    if isinstance(value, str):
+        value = [value]
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
 def grade_one(
     index: int,
     problem: dict[str, Any],
@@ -469,6 +652,8 @@ def grade_one(
     tmp_root: Path | None,
     jac_tmp: Path | None,
     per_test_mem_bytes: int | None = None,
+    server_codespace: bool = True,
+    stages: list[tuple[str, ProcessResult]] | None = None,
 ) -> tuple[int, dict[str, Any]]:
     problem_id = str(problem["id"])
     sample_id = sample.get("sample_id", index)
@@ -517,6 +702,8 @@ def grade_one(
             [jac_bin, "check", str(candidate_file)], cwd, timeout_s, env
         )
         row["check_ms"] = round(checked.elapsed_ms, 1)
+        if stages is not None:
+            stages.append(("check", checked))
         if checked.launch_error:
             set_infra_error(row, stage="check", error=checked.launch_error)
             return index, row
@@ -552,17 +739,32 @@ def grade_one(
             row["status"] = "check_pass"
             return index, row
 
-        guard_file = cwd / "guard.jac"
-        guard_file.write_text(
-            source.rstrip() + "\n\n" + hidden_tests.rstrip() + "\n", encoding="utf-8"
-        )
+        names = entrypoints(problem)
+        if names:
+            # Annex mode: hidden tests import the candidate as a separate
+            # module. This is the layout the 0.36 test runner supports and the
+            # one scripts/eval/validate_task.py uses for jac_native tasks.
+            header = f"import from candidate {{ {', '.join(names)} }}\n"
+            test_file = cwd / "tests.jac"
+            test_file.write_text(header + instrument_tests(hidden_tests).rstrip() + "\n", encoding="utf-8")
+        else:
+            # Legacy fallback when no entrypoint is declared.
+            test_file = cwd / "guard.jac"
+            test_file.write_text(
+                source.rstrip() + "\n\n" + instrument_tests(hidden_tests).rstrip() + "\n",
+                encoding="utf-8",
+            )
+        if server_codespace:
+            (cwd / "jac.toml").write_text(JAC_TOML_SERVER, encoding="utf-8")
         tested = run_process(
-            [jac_bin, "test", str(guard_file)], cwd, timeout_s, env,
+            [jac_bin, "test", "-v", str(test_file)], cwd, timeout_s, env,
             mem_limit_bytes=per_test_mem_bytes,
         )
+        if stages is not None:
+            stages.append(("test", tested))
         row["test_executed"] = True
         row["test_ms"] = round(tested.elapsed_ms, 1)
-        # JacCoder patch: per-test results (pytest 0.36.0 output). See PROVENANCE.md.
+        # JacCoder patch: per-test results + actual values. See PROVENANCE.md.
         row["per_test"] = parse_pytest_pertest(tested.stdout, hidden_tests)
         if tested.launch_error:
             set_infra_error(row, stage="test", error=tested.launch_error)
@@ -753,7 +955,7 @@ def validate_inputs(
 def jac_version(jac_bin: str) -> str | None:
     try:
         result = subprocess.run(
-            [jac_bin, "--version"], capture_output=True, text=True, timeout=15
+            [jac_bin, "--version"], capture_output=True, text=True, timeout=15  # sandbox-exempt: read-only probe
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -795,6 +997,17 @@ def main() -> int:
              "watchdog where scopes are unavailable); runaways are killed "
              "by the kernel and land as test_fail (WA). 0 disables the cap.",
     )
+    parser.add_argument(
+        "--native-codespace",
+        action="store_true",
+        help="keep the default native codespace instead of pinning server for tests",
+    )
+    parser.add_argument(
+        "--no-logs",
+        action="store_true",
+        help="skip <out-dir>/logs/<problem>__<sample>.log (full jac stdout/stderr; "
+             "contains hidden-test text)",
+    )
     args = parser.parse_args()
 
     if args.timeout <= 0:
@@ -811,13 +1024,23 @@ def main() -> int:
     samples = read_jsonl(args.samples)
     by_id = validate_inputs(problems, samples)
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    log_dir = None if args.no_logs else args.out_dir / "logs"
+    if log_dir is not None:
+        log_dir.mkdir(exist_ok=True)
+
+    def graded(index: int, problem: dict[str, Any], sample: dict[str, Any], **kwargs):
+        stages: list[tuple[str, ProcessResult]] = []
+        try:
+            return grade_one(index, problem, sample, stages=stages, **kwargs)
+        finally:
+            write_log(log_dir, str(problem["id"]), sample.get("sample_id", index), stages)
 
     started = time.perf_counter()
     ordered: list[dict[str, Any] | None] = [None] * len(samples)
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         futures = {
             executor.submit(
-                grade_one,
+                graded,
                 index,
                 by_id[str(sample["problem_id"])],
                 sample,
@@ -829,6 +1052,7 @@ def main() -> int:
                     int(args.per_test_mem_gb * (1 << 30))
                     if args.per_test_mem_gb > 0 else None
                 ),
+                server_codespace=not args.native_codespace,
             ): index
             for index, sample in enumerate(samples)
         }

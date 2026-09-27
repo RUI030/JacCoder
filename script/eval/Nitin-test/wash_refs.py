@@ -103,6 +103,7 @@ def main():
             "--chunk-size", "20",
             "--k",          "1",
             "--timeout",    str(args.timeout),
+            "--workers",    str(args.workers),
         ],
     ).returncode
     if rc:

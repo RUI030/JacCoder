@@ -113,6 +113,13 @@ def test_compiled_but_zero_per_test_rows_is_runtime():
     assert attribute(row, _ref()) == RUNTIME_ERROR_MODEL
 
 
+def test_no_test_reported_a_verdict_is_runtime():
+    """All passed=None (collection/import failure) → runtime, not ALL_WRONG."""
+    row = _model("test_fail", per_test=[{"name": "t0", "passed": None},
+                                        {"name": "t1", "passed": None}])
+    assert attribute(row, _ref()) == RUNTIME_ERROR_MODEL
+
+
 # ---------------------------------------------------------------------- runner
 def _run():
     cases = [v for k, v in globals().items()

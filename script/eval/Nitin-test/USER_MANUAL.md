@@ -57,7 +57,7 @@ per-testcase pass/fail.
 `test_blocks` (hidden Jac `test` blocks), `reference_completion`,
 `idiomatic_jac`, `required_features`, `forbidden_features`.
 
-Split sizes: dev = 400, test = 1000 (500 completion + 500 translation).
+Split sizes (upstream 2026-09-16 repair): dev = 394, test = 972 (486 completion + 486 translation).
 
 ---
 
@@ -91,6 +91,8 @@ python script/eval/Nitin-test/run_eval.py \
 Outputs land in `out/<tag>_<split>_<MM-DD_HH-MM>/`:
 - `samples.jsonl`  — model completions
 - `results.jsonl`  — per-sample verdicts, includes `per_test`
+- `chunks/chunk_NNN/logs/<problem>__<sample>.log` — full `jac check` / `jac test -v`
+  stdout+stderr per sample. Contains hidden-test text: private, never share or train on it.
 - `summary.json`   — status counts + pass@k
 
 ### 3b. Reference-solution baseline — `wash_refs.py`
@@ -104,7 +106,8 @@ full program, not a continuation), so an unfiltered `idiomatic_jac` run grades
 them as 500 `check_fail`. `report/merge_refs.load_refs` merges both refs files
 by problem id with the later file winning, which then marks every completion
 reference invalid (reference-valid 0%, completion failures attributed to the
-tool). `--workers` is accepted but unused; grading is always sequential.
+tool). `--workers` sets parallel samples per chunk; `grade_stream.py` caps each
+`jac test` at 4 xdist workers so the embedded postgres (64 clients) is not exhausted.
 
 ```bash
 python script/eval/Nitin-test/wash_refs.py \
@@ -164,7 +167,9 @@ Per run directory `out/<tag>_<split>_<stamp>/`:
 
 ```
 samples.jsonl          # {problem_id, sample_id, completion, ...}
-results.jsonl          # {problem_id, status, per_test:[{name,passed,...}], error, ...}
+results.jsonl          # {problem_id, status, per_test:[{name,passed,error?,actual?}], error, ...}
+                       #   passed: true | false | null (never reported, e.g. import failure)
+                       #   actual: repr of the call under test, failing asserts only
 summary.json           # {n_samples, status_counts, pass_at_1}
 taxonomy.jsonl         # (after build_taxonomy) failure category per failed row
 taxonomy_counts.json

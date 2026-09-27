@@ -85,9 +85,11 @@ def attribute(model_row: dict, ref_row: Optional[dict]) -> str:
 
     # 5 / 6 — tests actually executed; split by per_test.
     passed, total = _passed_total(model_row)
-    if total == 0:
-        # Compiled but test stage produced no per_test rows — treat as a
-        # runtime failure on the model side (crash before any test recorded).
+    ran = [t for t in model_row.get("per_test") or [] if t.get("passed") is not None]
+    if total == 0 or not ran:
+        # Compiled but no test reported a verdict (no per_test rows, or all
+        # passed=None from a collection/import failure) — treat as a runtime
+        # failure on the model side (crash before any test recorded).
         return RUNTIME_ERROR_MODEL
     if passed == 0:
         return ALL_WRONG

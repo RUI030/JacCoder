@@ -44,7 +44,7 @@ def chunk_dirname(idx: int) -> str:
 
 def run_chunk(
     grader: Path, problems: Path, chunk_dir: Path,
-    samples: list[dict], k: str, timeout: float,
+    samples: list[dict], k: str, timeout: float, workers: int = 1,
 ) -> None:
     chunk_dir.mkdir(parents=True, exist_ok=True)
     samples_fp = chunk_dir / "samples.jsonl"
@@ -59,7 +59,7 @@ def run_chunk(
             "--samples",  str(samples_fp),
             "--out-dir",  str(chunk_dir),
             "--k",        k,
-            "--workers",  "1",           # sequential; postgres cap is 64
+            "--workers",  str(workers),  # postgres caps clients at 64: workers x xdist
             "--timeout",  str(timeout),
         ],
     ).returncode
@@ -234,10 +234,17 @@ def main():
     cli.add_argument("--grader",  type=Path,
                      default=Path(__file__).resolve().parent / "eval_jac.py",
                      help="path to the vendored eval_jac.py")
+    cli.add_argument("--workers", type=int, default=1,
+                     help="parallel samples per chunk; each `jac test` also runs "
+                          "PYTEST_XDIST_AUTO_NUM_WORKERS xdist workers (default 4 here), "
+                          "and the embedded postgres allows 64 clients in total")
     cli.add_argument("--skip-ids", type=Path, default=None,
                      help="text file of problem ids to exclude (one per line); "
                           "use for known-runaway samples that OOM the grader")
     args = cli.parse_args()
+    # xdist `-n auto` = one worker per core; on a 32-core box a few parallel
+    # samples exhaust postgres' 64 clients ("too many clients already").
+    os.environ.setdefault("PYTEST_XDIST_AUTO_NUM_WORKERS", "4")
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     chunks_root = args.out_dir / "chunks"
@@ -269,7 +276,7 @@ def main():
         # blocks × thousands of samples = full nvme).
         purge_jac_pg_cache()
         print(f"[run ] chunk {i:03d}  {len(chunk)} samples  → {cd}", flush=True)
-        run_chunk(args.grader, args.problems, cd, chunk, args.k, args.timeout)
+        run_chunk(args.grader, args.problems, cd, chunk, args.k, args.timeout, args.workers)
 
     # Postgres daemonizes out of the test's process group, so it outlives the
     # last chunk (holding its data dir) unless stopped here too.
