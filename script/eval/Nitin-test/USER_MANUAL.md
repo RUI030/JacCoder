@@ -82,7 +82,9 @@ there). The project also has a top-level env; matplotlib is only in
 python script/eval/Nitin-test/run_eval.py \
   --adapter output/adapter/<run>/sft/adapter \
   --split test              # dev | test
-  --k 1                     # pass@k, comma-separated e.g. "1,5"
+  --k 1                     # pass@k, comma-separated e.g. "1,5"; each k <= --n-samples
+  --n-samples 1             # completions per problem; >1 needs --temperature > 0
+  --temperature 0           # 0 = greedy; sampling runs get a `_n<N>_t<T>` tag suffix
   --workers 4               # grader workers
   --limit 0                 # 0 = full split; N = first N problems
   --timeout 300             # per-sample grader timeout (s)
@@ -93,7 +95,13 @@ Outputs land in `out/<tag>_<split>_<MM-DD_HH-MM>/`:
 - `results.jsonl`  — per-sample verdicts, includes `per_test`
 - `chunks/chunk_NNN/logs/<problem>__<sample>.log` — full `jac check` / `jac test -v`
   stdout+stderr per sample. Contains hidden-test text: private, never share or train on it.
-- `summary.json`   — status counts + pass@k
+- `summary.json`   — status counts + pass@k + `p_hat_buckets`
+
+With `--n-samples > 1`, `p_hat_buckets` counts problems by per-problem pass
+rate: `zero` / `partial` / `all`. Only `partial` problems give GRPO a
+non-zero advantage, so this is the RL-readiness number. Use the RL rollout
+temperature (about 1.0). The downstream tools (`build_taxonomy`, `report/`,
+`plot_*`) key rows by `problem_id` and assume one sample per problem.
 
 ### 3b. Reference-solution baseline — `wash_refs.py`
 
@@ -188,7 +196,8 @@ samples.jsonl          # {problem_id, sample_id, completion, ...}
 results.jsonl          # {problem_id, status, per_test:[{name,passed,error?,actual?}], error, ...}
                        #   passed: true | false | null (never reported, e.g. import failure)
                        #   actual: repr of the call under test, failing asserts only
-summary.json           # {n_samples, status_counts, pass_at_1}
+summary.json           # {n_samples, status_counts, pass_at_1, n_problems,
+                       #  samples_per_problem, pass_at_k, p_hat_buckets}
 taxonomy.jsonl         # (after build_taxonomy) failure category per failed row
 taxonomy_counts.json
 passrate.png           # (after plot_passrate) 9-bucket histogram

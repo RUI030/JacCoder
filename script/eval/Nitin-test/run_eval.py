@@ -76,66 +76,72 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
             f.write("\n")
 
 
-def generate_samples(model, tokenizer, prompts: list[dict], limit: int) -> list[dict]:
-    from utils.model import generate_batched  # noqa: E402  (torch/unsloth: HF path only)
+def expand_jobs(prompts: list[dict], limit: int, n_samples: int) -> list[tuple[dict, int]]:
+    """(prompt, sample_id) pairs; `limit` counts problems, not samples."""
     if limit:
         prompts = prompts[:limit]
+    return [(p, sid) for p in prompts for sid in range(n_samples)]
+
+
+def to_sample(p: dict, sid: int, reply: str) -> dict:
+    return {
+        "problem_id": p["id"],
+        "sample_id":  sid,
+        "completion": strip_echoed_prefix(strip_fence(reply), p.get("prefix", "")),
+    }
+
+
+def generate_samples(model, tokenizer, prompts: list[dict], limit: int,
+                     n_samples: int, temperature: float) -> list[dict]:
+    from utils.model import generate_batched  # noqa: E402  (torch/unsloth: HF path only)
+    jobs = expand_jobs(prompts, limit, n_samples)
     samples: list[dict] = []
-    for i in range(0, len(prompts), BATCH_SIZE):
-        chunk = prompts[i : i + BATCH_SIZE]
-        messages_list = [[{"role": "user", "content": p["prompt"]}] for p in chunk]
+    for i in range(0, len(jobs), BATCH_SIZE):
+        chunk = jobs[i : i + BATCH_SIZE]
+        messages_list = [[{"role": "user", "content": p["prompt"]}] for p, _ in chunk]
         replies = generate_batched(
             model, tokenizer, messages_list,
             max_new_tokens=MAX_NEW_TOKENS,
-            temperature=TEMPERATURE,
+            temperature=temperature,
             top_p=TOP_P,
             repetition_penalty=REPETITION_PENALTY,
             enable_thinking=ENABLE_THINKING,
         )
-        for p, reply in zip(chunk, replies):
-            body = strip_echoed_prefix(strip_fence(reply), p.get("prefix", ""))
-            samples.append({
-                "problem_id": p["id"],
-                "sample_id":  0,
-                "completion": body,
-            })
-        done = min(i + BATCH_SIZE, len(prompts))
-        if done % 20 == 0 or done == len(prompts):
-            print(f"  generated {done}/{len(prompts)}", flush=True)
+        samples.extend(to_sample(p, sid, reply) for (p, sid), reply in zip(chunk, replies))
+        done = min(i + BATCH_SIZE, len(jobs))
+        if done % 20 == 0 or done == len(jobs):
+            print(f"  generated {done}/{len(jobs)}", flush=True)
     return samples
 
 
-def generate_samples_http(base_url: str, prompts: list[dict], limit: int, workers: int) -> list[dict]:
+def generate_samples_http(base_url: str, prompts: list[dict], limit: int, workers: int,
+                          n_samples: int, temperature: float) -> list[dict]:
     """Same as generate_samples, but via an OpenAI-compatible server (e.g. llama-server
     serving a GGUF). Stdlib only, so it runs under a Python without torch/unsloth."""
-    if limit:
-        prompts = prompts[:limit]
+    jobs = expand_jobs(prompts, limit, n_samples)
     url = f"{base_url.rstrip('/')}/chat/completions"
 
-    def one(p: dict) -> dict:
+    def one(job: tuple[dict, int]) -> dict:
+        p, sid = job
         body = json.dumps({
             "model": "local",
             "messages": [{"role": "user", "content": p["prompt"]}],
             "max_tokens": MAX_NEW_TOKENS,
-            "temperature": TEMPERATURE,
+            "temperature": temperature,
             "top_p": TOP_P,
             "repeat_penalty": REPETITION_PENALTY,
         }).encode()
         req = urllib.request.Request(url, body, {"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=1800) as r:
             reply = json.load(r)["choices"][0]["message"]["content"] or ""
-        return {
-            "problem_id": p["id"],
-            "sample_id":  0,
-            "completion": strip_echoed_prefix(strip_fence(reply), p.get("prefix", "")),
-        }
+        return to_sample(p, sid, reply)
 
     samples: list[dict] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for s in pool.map(one, prompts):              # map keeps prompt order
+        for s in pool.map(one, jobs):                 # map keeps prompt order
             samples.append(s)
-            if len(samples) % 20 == 0 or len(samples) == len(prompts):
-                print(f"  generated {len(samples)}/{len(prompts)}", flush=True)
+            if len(samples) % 20 == 0 or len(samples) == len(jobs):
+                print(f"  generated {len(samples)}/{len(jobs)}", flush=True)
     return samples
 
 
@@ -156,19 +162,34 @@ def main():
     cli.add_argument("--only-ids", type=Path, default=None,
                      help="text file of problem ids (one per line) to keep; "
                           "typically wash_refs.py's refs_ok.txt")
-    cli.add_argument("--k", default="1", help="pass@k values, comma-separated")
+    cli.add_argument("--n-samples", type=int, default=1,
+                     help="completions per problem; >1 needs --temperature > 0")
+    cli.add_argument("--temperature", type=float, default=TEMPERATURE,
+                     help="0 = greedy; match the RL rollout temperature when "
+                          "measuring pass@k for RL readiness")
+    cli.add_argument("--k", default="1",
+                     help="pass@k values, comma-separated; each k must be <= --n-samples")
     cli.add_argument("--workers", type=int, default=2, help="grader workers")
     cli.add_argument("--timeout", type=float, default=300.0,
                      help="per-stage seconds; grader default is 120")
     args = cli.parse_args()
     if bool(args.adapter) == bool(args.base_url):
         cli.error("pass exactly one of --adapter / --base-url")
+    if args.n_samples < 1:
+        cli.error("--n-samples must be >= 1")
+    if args.n_samples > 1 and args.temperature <= 0:
+        cli.error("--n-samples > 1 with greedy decoding gives identical samples; "
+                  "set --temperature > 0")
+    if max(int(k) for k in args.k.split(",")) > args.n_samples:
+        cli.error(f"--k {args.k} exceeds --n-samples {args.n_samples}")
 
     public_fp  = _HERE / "data" / "function" / "v1" / "public"  / f"{args.split}.jsonl"
     private_fp = _HERE / "data" / "function" / "v1" / "private" / f"{args.split}.jsonl"
     grade_stream = _HERE / "graders" / "grade_stream.py"
 
     tag  = args.tag or (Path(args.adapter).parent.name if args.adapter else "base")
+    if args.temperature > 0:
+        tag += f"_n{args.n_samples}_t{args.temperature:g}"
     stamp = datetime.now().strftime("%m-%d_%H-%M")
     out_dir = _HERE / "out" / f"{tag}_{args.split}_{stamp}"
     samples_fp = out_dir / "samples.jsonl"
@@ -176,6 +197,7 @@ def main():
     print(f"Model   : {args.adapter or args.base_url}")
     print(f"Split   : {args.split}  (prompts={public_fp}, hidden={private_fp})")
     print(f"Output  : {out_dir}")
+    print(f"Sampling: n={args.n_samples}  temperature={args.temperature}  top_p={TOP_P}")
 
     prompts = read_jsonl(public_fp)
     if args.only_ids:
@@ -184,11 +206,13 @@ def main():
         prompts = [p for p in prompts if p["id"] in keep]
         print(f"Filtered by --only-ids: {before} → {len(prompts)}")
     if args.base_url:
-        samples = generate_samples_http(args.base_url, prompts, args.limit, args.gen_workers)
+        samples = generate_samples_http(args.base_url, prompts, args.limit, args.gen_workers,
+                                        args.n_samples, args.temperature)
     else:
         from utils.model import load_model  # noqa: E402  (torch/unsloth: HF path only)
         model, tokenizer = load_model(args.adapter, MAX_SEQ_LENGTH, load_in_4bit=True)
-        samples = generate_samples(model, tokenizer, prompts, args.limit)
+        samples = generate_samples(model, tokenizer, prompts, args.limit,
+                                   args.n_samples, args.temperature)
     write_jsonl(samples_fp, samples)
     print(f"Wrote {len(samples)} samples → {samples_fp}")
 

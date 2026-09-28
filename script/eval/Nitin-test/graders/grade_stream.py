@@ -21,8 +21,10 @@ import os
 import shutil
 import subprocess
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
+
+from eval_jac import pass_at_k
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -67,7 +69,74 @@ def run_chunk(
         raise RuntimeError(f"grader exited {rc} without writing results for {chunk_dir}")
 
 
-def merge_results(chunk_dirs: list[Path], out_dir: Path) -> None:
+def test_pass_fraction(row: dict) -> float:
+    """Share of hidden tests passed; 0 when no test ran (check_fail etc.)."""
+    tests = row.get("per_test") or []
+    return sum(t["passed"] is True for t in tests) / len(tests) if tests else 0.0
+
+
+def pass_curve(grouped: dict[str, list[bool]], ks: list[int]) -> dict:
+    """{k: {eligible_problems, value}}; problems with fewer than k samples are skipped."""
+    curve = {}
+    for k in ks:
+        est = [e for e in (pass_at_k(len(v), sum(v), k) for v in grouped.values())
+               if e is not None]
+        curve[str(k)] = {"eligible_problems": len(est),
+                         "value": sum(est) / len(est) if est else None}
+    return curve
+
+
+def per_problem_stats(rows: list[dict], ks: list[int]) -> dict:
+    """pass@k, the per-problem pass-rate spread, and how close unsolved problems get.
+
+    - `pass_at_k`: the requested --k values.
+    - `pass_curve`: pass@1..n (n = fewest samples any problem has), cumulative
+      share of problems solved within j tries.
+    - `p_hat_buckets` / `passes_hist`: p_hat = passes / samples per problem.
+      Only 0 < p_hat < 1 gives GRPO a non-zero advantage with a pass/fail reward.
+    - `unsolved`: problems no sample passed, bucketed by the best test-pass
+      fraction over their samples; high values mean a partial (per-test)
+      reward still has signal there.
+    """
+    grouped: dict[str, list[bool]] = defaultdict(list)
+    best_frac: dict[str, float] = defaultdict(float)
+    statuses: dict[str, Counter] = defaultdict(Counter)
+    for r in rows:
+        pid = r["problem_id"]
+        grouped[pid].append(r.get("status") == "pass")
+        best_frac[pid] = max(best_frac[pid], test_pass_fraction(r))
+        statuses[pid][r.get("status")] += 1
+    n_min = min((len(v) for v in grouped.values()), default=0)
+    p_hat = [sum(v) / len(v) for v in grouped.values()]
+
+    unsolved = [pid for pid, v in grouped.items() if not any(v)]
+    fracs = [best_frac[pid] for pid in unsolved]
+    return {
+        "n_problems":          len(grouped),
+        "samples_per_problem": sorted(Counter(len(v) for v in grouped.values()).items()),
+        "pass_at_k":           pass_curve(grouped, ks),
+        "pass_curve":          pass_curve(grouped, list(range(1, n_min + 1))),
+        "p_hat_buckets": {
+            "zero":    sum(p == 0 for p in p_hat),
+            "partial": sum(0 < p < 1 for p in p_hat),
+            "all":     sum(p == 1 for p in p_hat),
+        },
+        "passes_hist": dict(sorted(Counter(f"{sum(v)}/{len(v)}"
+                                           for v in grouped.values()).items())),
+        "unsolved": {
+            "n":                len(unsolved),
+            "best_test_frac": {
+                "0%":     sum(f == 0 for f in fracs),
+                "1-49%":  sum(0 < f < 0.5 for f in fracs),
+                "50-99%": sum(f >= 0.5 for f in fracs),
+            },
+            "mean_best_test_frac": sum(fracs) / len(fracs) if fracs else None,
+            "sample_status":  dict(sum((statuses[pid] for pid in unsolved), Counter())),
+        },
+    }
+
+
+def merge_results(chunk_dirs: list[Path], out_dir: Path, ks: list[int]) -> None:
     all_rows: list[dict] = []
     for cd in chunk_dirs:
         rf = cd / "results.jsonl"
@@ -89,6 +158,7 @@ def merge_results(chunk_dirs: list[Path], out_dir: Path) -> None:
         "n_samples": total,
         "status_counts": dict(status_counts),
         "pass_at_1": {"eligible": total, "value": passed / total if total else 0.0},
+        **per_problem_stats(all_rows, ks),
         "note": "aggregated by grade_stream.py; per-chunk summaries live in chunks/",
     }
     (out_dir / "summary.json").write_text(
@@ -97,6 +167,16 @@ def merge_results(chunk_dirs: list[Path], out_dir: Path) -> None:
     print(f"\nAggregated: {passed}/{total} pass ({100 * passed / total:.1f}%) "
           f"→ {out_dir / 'results.jsonl'}")
     print(f"status_counts: {dict(status_counts)}")
+    for k, v in summary["pass_at_k"].items():
+        if v["value"] is not None:
+            print(f"pass@{k}: {100 * v['value']:.1f}%  ({v['eligible_problems']} problems)")
+    curve = "  ".join(f"@{k} {100 * v['value']:.1f}%"
+                      for k, v in summary["pass_curve"].items() if v["value"] is not None)
+    print(f"pass curve   : {curve}")
+    print(f"p_hat buckets: {summary['p_hat_buckets']}")
+    print(f"passes hist  : {summary['passes_hist']}")
+    print(f"unsolved     : {summary['unsolved']['n']}  best test frac "
+          f"{summary['unsolved']['best_test_frac']}")
 
 
 _JAC_PG_ROOT  = Path.home() / ".cache" / "jac" / "pg"
@@ -281,7 +361,7 @@ def main():
     # Postgres daemonizes out of the test's process group, so it outlives the
     # last chunk (holding its data dir) unless stopped here too.
     purge_jac_pg_cache()
-    merge_results(chunk_dirs, args.out_dir)
+    merge_results(chunk_dirs, args.out_dir, [int(k) for k in args.k.split(",")])
 
 
 if __name__ == "__main__":
