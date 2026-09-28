@@ -26,7 +26,8 @@ Run everything from the repo root.
 
 ```bash
 # Multi-dataset training (preferred): a YAML/py recipe drives the stage, hyperparams and dataset mix
-python script/train/train.py --recipe script/train/recipe/<name>.yaml [--resume <run>/checkpoint-N | --adapter <dir>]
+python script/train/train.py --recipe script/train/recipe/<name>.yaml [--adapter <dir>]
+python script/train/train.py --resume <run>/checkpoint-N     # recipe comes from <run>/recipe.<ext>
 python script/train/train.py --recipe script/train/recipe/dev/smoke_sft.yaml     # smoke test
 
 # Single-dataset training (in-file config block + CLI overrides)
@@ -67,7 +68,7 @@ tensorboard --logdir output/adapter/<run>/runs
 ## Gotchas
 
 - **`text_only=True` must match between training and loading.** Ornith is a processor-wrapped VLM. If an adapter is trained without `text_only`, its keys include `.language_model.`, they silently fail to match at load time, and eval quietly runs the base model (every checkpoint then shows identical loss). See `docs/DEBUG.md`.
-- `--resume` (a `checkpoint-N/` directory with full trainer state) and `--adapter` (weights only, fresh optimizer) are mutually exclusive. A loaded adapter freezes the LoRA shape (`--rank`, target modules, alpha, rslora). To change the shape, merge first with `script/merge_lora.py` and retrain on the merged base.
+- `--resume` (a `checkpoint-N/` directory with full trainer state) and `--adapter` (weights only, fresh optimizer) are mutually exclusive. `--resume` loads the model from the checkpoint (LoRA shape included) and the recipe from `<run>/recipe.<ext>`. A loaded adapter freezes the LoRA shape (`--rank`, target modules, alpha, rslora). To change the shape, merge first with `script/merge_lora.py` and retrain on the merged base.
 - In-training eval (`DO_EVAL`) is off because it OOMs on 16GB. Use `script/eval/probe/cpt_loss.py` or `batch.py` after training. When loading several models in one loop, call `gc.collect()` and `torch.cuda.ipc_collect()`, not just `empty_cache()`.
 - With `interleave` + `all_exhausted`, small datasets can be resampled many times (see `docs/CONCERN.md`).
 - Never train on `script/eval/Nitin-test/data/**/private/`. It holds the hidden tests and reference solutions.

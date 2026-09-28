@@ -12,7 +12,7 @@ from unsloth import (
 from unsloth.chat_templates import get_chat_template, train_on_responses_only
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from utils import finalize_out_dir, print_gpu_banner, save_adapter
+from utils import finalize_out_dir, model_source, print_gpu_banner, save_adapter
 
 
 # Defaults (also the config schema for train.py) ============================
@@ -123,7 +123,7 @@ def run_sft(config: dict, train_ds, eval_ds=None):
     Path(cfg["out_dir"], "runs").mkdir(parents=True, exist_ok=True)
 
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name     = cfg["adapter"] or cfg["base_model"],
+        model_name     = model_source(cfg),
         max_seq_length = cfg["max_seq_length"],
         dtype          = cfg["dtype"],
         load_in_4bit   = cfg["load_in_4bit"],
@@ -136,7 +136,7 @@ def run_sft(config: dict, train_ds, eval_ds=None):
             "The base tokenizer has no chat template; set recipe.chat_template explicitly"
         )
 
-    if not cfg["adapter"]:
+    if not (cfg["adapter"] or cfg["resume_from"]):
         model = FastLanguageModel.get_peft_model(
             model,
             r                          = cfg["lora_rank"],

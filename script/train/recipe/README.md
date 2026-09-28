@@ -73,10 +73,19 @@ Resume from one of them:
 ```bash
 mamba activate <ENV_NAME>
 
-python script/train/train.py \
-  --recipe script/train/recipe/<RECIPE_NAME>.yaml \
-  --resume <RUN_DIR>/checkpoint-<CHECKPOINT_STEP>
+python script/train/train.py --resume <RUN_DIR>/checkpoint-<CHECKPOINT_STEP>
 ```
+
+Every run keeps the recipe it started from as `<RUN_DIR>/recipe.<ext>`, and
+`--resume` rebuilds the run from that copy, not from the file under `recipe/`,
+which may have been edited since. Pass `--recipe` to override it on purpose;
+that copy is kept beside the original as `recipe.<MM-DD_HH-MM>.<ext>`. Runs
+started before this copy existed need `--recipe`.
+
+The model loads from the checkpoint itself, so the LoRA shape (rank, alpha,
+rslora, target modules) is whatever the run trained with. A stage stacked on
+an earlier adapter (`adapter:` in the recipe, e.g. CPT → SFT) resumes as is:
+no `adapter: ""` or `lora_alpha` edits.
 
 Use `--adapter <ADAPTER_DIR>` instead when intentionally starting a new stage
 with fresh optimizer and scheduler state. Merge the old adapter into a new
@@ -173,7 +182,7 @@ Command-line flags override the recipe:
 
 ```
 --adapter <path>   # continue from adapter (mutex with --resume)
---resume <ckpt>    # resume training state (mutex with --adapter)
+--resume <ckpt>    # resume training state; --recipe optional (mutex with --adapter)
 ```
 
 ## Output

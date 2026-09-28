@@ -21,6 +21,16 @@ def finalize_out_dir(cfg: dict) -> None:
     cfg["out_dir"] = str((OUTPUT_ROOT / f"{ts}-{tag}").resolve())
 
 
+def model_source(cfg: dict) -> str:
+    """What `from_pretrained` loads: the resume checkpoint, else the adapter, else the base.
+
+    A checkpoint is itself a PEFT adapter dir, so a resumed run keeps the LoRA
+    shape it was trained with. A CPT->SFT stage keeps the CPT adapter's alpha
+    rather than picking up the recipe's.
+    """
+    return cfg["resume_from"] or cfg["adapter"] or cfg["base_model"]
+
+
 def print_gpu_banner() -> None:
     """Print current GPU name and reserved / total memory."""
     stats    = torch.cuda.get_device_properties(0)

@@ -11,7 +11,7 @@ from unsloth import (
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from utils import finalize_out_dir, print_gpu_banner, save_adapter
+from utils import finalize_out_dir, model_source, print_gpu_banner, save_adapter
 
 
 # Defaults (also the config schema for train.py) ============================
@@ -89,17 +89,17 @@ def run_cpt(config: dict, train_ds, eval_ds=None):
     Path(cfg["out_dir"], "runs").mkdir(parents=True, exist_ok=True)
 
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name     = cfg["adapter"] or cfg["base_model"],
+        model_name     = model_source(cfg),
         max_seq_length = cfg["max_seq_length"],
         dtype          = cfg["dtype"],
         load_in_4bit   = cfg["load_in_4bit"],
         text_only      = cfg["text_only"],
     )
 
-    # `adapter` set means from_pretrained already wrapped the model with PEFT;
-    # skip get_peft_model to avoid double-wrapping. LoRA shape is then frozen
-    # by the checkpoint; to change rank/target_modules, merge first.
-    if not cfg["adapter"]:
+    # `adapter` or `resume_from` set means from_pretrained already wrapped the
+    # model with PEFT; skip get_peft_model to avoid double-wrapping. LoRA shape
+    # is then frozen by the checkpoint; to change rank/target_modules, merge first.
+    if not (cfg["adapter"] or cfg["resume_from"]):
         model = FastLanguageModel.get_peft_model(
             model,
             r                          = cfg["lora_rank"],

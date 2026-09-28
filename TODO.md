@@ -13,6 +13,12 @@
     - [x] build
     - [ ] test
     - [ ] check continue training works
+    - [x] resume from a checkpoint alone
+        - [x] `train.py` saves the recipe to `<run>/recipe.<ext>` at start
+        - [x] `train.py --resume <run>/checkpoint-N` without `--recipe` reads it (`--recipe` still overrides)
+        - [x] model loads from the checkpoint, so a CPT→SFT stage keeps its LoRA shape without the `adapter: ""` + CPT `lora_alpha` workaround
+        - [x] update recipe/README.md, docs/CLOUD_GPU.md, CLAUDE.md resume notes
+    - [ ] fix `recipe/dev/smoke_sft.yaml` (points at archived `osp/Nitin-1k-osp`)
 - [ ] markdown collecting and preproc
 - [ ] slide: current situation, bottleneck, plan, resource required
 - [ ] Establish LLM-as-judge standard for semantic failure-mode categorization

@@ -164,8 +164,9 @@ slots is tight (lower `-np`). Budget ~64GB+ host RAM for the load peak.
 - **Packing is worth it for short SFT data:** ~80 min vs ~6.5h (median sample
   211 tokens), GPU 95% vs 66%. Use `grad_acc: 1` to keep ~10 samples/update.
 - **CPT → SFT via `adapter:`** keeps the CPT LoRA shape (alpha 32 here, the SFT
-  recipe's 16 is ignored). Resuming such a run needs `adapter: ""` *and*
-  `lora_alpha: 32`, or the checkpoint loads at the wrong scale.
+  recipe's 16 is ignored). `train.py --resume <run>/checkpoint-N` loads the
+  model from the checkpoint, so it keeps that shape too (before 09-27 this
+  needed a recipe with `adapter: ""` *and* `lora_alpha: 32`).
 - Verify continuation with weights, not the trainable-param count: `lora_A`
   cosine vs the CPT adapter should be ~1 at the first SFT checkpoint.
 
