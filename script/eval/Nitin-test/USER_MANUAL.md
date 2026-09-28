@@ -159,6 +159,24 @@ task plus an overall panel; force with `--split-by-task` /
 is empty; jac-tool errors with a per_test array fall into 0% or partial —
 check `taxonomy_counts.json` for the raw counts.
 
+It also writes `passrate_cdf.png` (or `--cdf-out`): one column per task, the
+share of problems passing at least x% of their tests with x running 100 → 0,
+so the left end is the AC share and a higher curve is better (compile fail /
+tool error count as 0%). `--compare LABEL=out/<other>/results.jsonl`
+(repeatable, up to 2) overlays other runs; `--label` names this one.
+
+### 3f. A/B pass/fail overlap — `plot_overlap.py`
+
+```bash
+python script/eval/Nitin-test/plot_overlap.py \
+  --a out/<runA>/results.jsonl --label-a <A> \
+  --b out/<runB>/results.jsonl --label-b <B> \
+  --out out/<A>_vs_<B>/overlap.png
+```
+Per task: both pass / only A / only B / both fail, with exact McNemar p and
+the failure overlap (both fail ÷ failed by either). `overlap.json` lists the
+problem ids in each group.
+
 ---
 
 ## 4. Expected outputs
@@ -174,6 +192,7 @@ summary.json           # {n_samples, status_counts, pass_at_1}
 taxonomy.jsonl         # (after build_taxonomy) failure category per failed row
 taxonomy_counts.json
 passrate.png           # (after plot_passrate) 9-bucket histogram
+passrate_cdf.png       # (after plot_passrate) cumulative pass-rate curves
 ```
 
 Per report directory `out/report_<tag>/`:

@@ -7,8 +7,6 @@ Run from repo root:
 Exit code is non-zero iff any assertion fails. No pytest needed.
 """
 
-from __future__ import annotations
-
 import sys
 from pathlib import Path
 
