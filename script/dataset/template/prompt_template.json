@@ -60,5 +60,10 @@
         "The Jac file below has its bodies stripped to `{ ... }`. Implement these declarations:\n{names}\nReply with only those declarations, fully implemented, in a single ```jac ... ``` block.",
         "Using the Jac scaffold below as context, write the full implementation of\n{names}\nReturn just those declarations inside ```jac ... ```.",
         "Write the missing bodies for the following declarations of this Jac file:\n{names}\nOutput only the completed declarations as one ```jac``` block."
+    ],
+    "rl_functions":[
+        "Implement the Jac function described below, starting from the given starter file. Return the complete file in exactly one ```jac ... ``` block.",
+        "Solve the following task in Jac. Complete the starter code and reply with the whole file inside a single ```jac ... ``` block.",
+        "Write a Jac implementation for the request below. Keep the function signature from the starter and return the full file as one ```jac``` block."
     ]
 }
