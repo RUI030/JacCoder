@@ -47,6 +47,7 @@ def chunk_dirname(idx: int) -> str:
 def run_chunk(
     grader: Path, problems: Path, chunk_dir: Path,
     samples: list[dict], k: str, timeout: float, workers: int = 1,
+    per_test_mem_gb: float = 6.0,
 ) -> None:
     chunk_dir.mkdir(parents=True, exist_ok=True)
     samples_fp = chunk_dir / "samples.jsonl"
@@ -63,6 +64,7 @@ def run_chunk(
             "--k",        k,
             "--workers",  str(workers),  # postgres caps clients at 64: workers x xdist
             "--timeout",  str(timeout),
+            "--per-test-mem-gb", str(per_test_mem_gb),
         ],
     ).returncode
     if rc and not (chunk_dir / "results.jsonl").is_file():
@@ -318,6 +320,10 @@ def main():
                      help="parallel samples per chunk; each `jac test` also runs "
                           "PYTEST_XDIST_AUTO_NUM_WORKERS xdist workers (default 4 here), "
                           "and the embedded postgres allows 64 clients in total")
+    cli.add_argument("--per-test-mem-gb", type=float, default=6.0,
+                     help="memory cap per `jac test`; each runs in its own scope outside "
+                          "ours, so workers x this is the real ceiling. Normal tests peak "
+                          "~300 MB, the heaviest passing one (fn-complete-245072) ~4.8 GB")
     cli.add_argument("--skip-ids", type=Path, default=None,
                      help="text file of problem ids to exclude (one per line); "
                           "use for known-runaway samples that OOM the grader")
@@ -356,7 +362,8 @@ def main():
         # blocks × thousands of samples = full nvme).
         purge_jac_pg_cache()
         print(f"[run ] chunk {i:03d}  {len(chunk)} samples  → {cd}", flush=True)
-        run_chunk(args.grader, args.problems, cd, chunk, args.k, args.timeout, args.workers)
+        run_chunk(args.grader, args.problems, cd, chunk, args.k, args.timeout, args.workers,
+                  args.per_test_mem_gb)
 
     # Postgres daemonizes out of the test's process group, so it outlives the
     # last chunk (holding its data dir) unless stopped here too.

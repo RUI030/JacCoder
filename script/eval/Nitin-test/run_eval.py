@@ -170,6 +170,8 @@ def main():
     cli.add_argument("--k", default="1",
                      help="pass@k values, comma-separated; each k must be <= --n-samples")
     cli.add_argument("--workers", type=int, default=2, help="grader workers")
+    cli.add_argument("--per-test-mem-gb", type=float, default=6.0,
+                     help="memory cap per `jac test`; workers x this must fit in RAM")
     cli.add_argument("--timeout", type=float, default=300.0,
                      help="per-stage seconds; grader default is 120")
     args = cli.parse_args()
@@ -227,6 +229,7 @@ def main():
             "--k",          args.k,
             "--timeout",    str(args.timeout),
             "--workers",    str(args.workers),
+            "--per-test-mem-gb", str(args.per_test_mem_gb),
         ],
     ).returncode
     if rc:
