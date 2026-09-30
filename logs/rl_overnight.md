@@ -6,6 +6,47 @@ Host: RTX 5080 16 GB, 61 GB RAM, 32 cores, jac 0.36.1, env `tornith` (trl 0.24.0
 Answers given before start: purge `~/.cache/jac/pg` freely; host dedicated overnight;
 format rule = any prose allowed, exactly one ```` ```jac ```` block.
 
+## Summary (read this first)
+
+| phase | status |
+|---|---|
+| 1 dataset (`dataset/rl/functions/spike-sample-20`, 20 tasks / 109 hidden tests) | done |
+| 2 grader (`utils/jac_cli`, `script/rl/`, self-test) | done |
+| 3 GRPO plumbing (`train/grpo.py`, `rl/rewards.py`, `stage: grpo`) | done |
+| 4 readiness (`eval/rl/run_eval.py`) → picked **0926-v13-A** | done |
+| 5 spike run, 50 steps, `output/adapter/0930-grpo-functions-spike/grpo/` | done |
+| 6 GSPO | **skipped**: 50 matched steps need ~4.6 h, not possible before 07:30 |
+| 7 docs (CLAUDE.md, CONVENTION.md, recipe README, eval README, plan divergences) | done |
+
+Key numbers:
+- Spike (GRPO, v13-A SFT → 50 steps, 16 completions/step, 2 groups × 8, lr 5e-6, beta 0): 4 h 32 min,
+  ~327 s/step avg. Train reward 0.656 → 0.795 (steps 1–10 → 31–40), pass rate 0.34 → 0.59,
+  compile 0.89 → 0.96. 0 infra errors in 800 graded samples, host RAM ≤ 17.0 GB, pg dir ≤ 4.4 GB (purged every 5 steps).
+- Train split (n=8, T=0.8), SFT v13-A → GRPO: pass@1 0.375 → **0.509**, pass@8 0.857 → 0.929,
+  compile 0.902 → 0.964, mean reward 0.665 → 0.765.
+- **Dev split (3 tasks × 8), SFT v13-A → GRPO: pass@1 0.250 → 0.458, pass@8 0.667 → 1.000**, mean reward
+  0.517 → 0.608, compile 0.833 → 0.833. checkpoint-25 on dev: pass@1 0.250 (= SFT). Dev is only 24 samples.
+- Test split never evaluated (kept as the holdout).
+
+Needs your decision:
+1. `script/train/recipe/dev/smoke_sft.yaml` points at the archived `osp/Nitin-1k-osp`; the smoke used a scratch copy
+   with `Nitin-osp-merged`. Update the recipe, or keep it as is?
+2. `script/train/` is now a package, and train scripts import `train.utils` / `train.mixer` (see Phase 3). This is a
+   shape change: keep it, or rename `train/utils.py` instead?
+3. Generation speed: GRPO rollouts run on the torch fallback (fla / causal-conv1d missing) and take ~5× longer
+   per sample than `generate_batched` eval. Installing those kernels, or vLLM, needs a `requirement.txt` / env change.
+4. Is the dev gain real? 3 dev tasks is too few to say. Grow dev/test (and train) before a longer run.
+5. Watch item: on dev `int_to_roman`, GRPO answers 4/8 times with an enumerated lookup table that runs into the 512-token
+   cap (SFT truncated 3/8 with long if-chains instead). None of the train rollouts show this.
+
+Suggested next steps:
+- More tasks (a producer under `script/dataset/rl/`, deduped against Nitin-test clusters), especially
+  harder ones: 5/14 train tasks were still at ≤ 1/8 passes at readiness.
+- A longer run once generation is faster; 50 steps = ~7 passes over 14 tasks. Groups with zero std
+  reached 10–15% late in the run, so easy tasks are beginning to saturate.
+- GSPO vs GRPO at matched steps (e.g. 25 vs `checkpoint-25`), and the Qwen3-Coder MoE on a larger GPU.
+- `rollouts/` is ready for a proper reward-hacking audit: 354 passes, no escapes or test blocks were found.
+
 ## TODO (checklist, kept current)
 
 - [x] P1 dataset: 20 tasks, validate solutions/starters, statistic.json, commit
@@ -17,9 +58,9 @@ format rule = any prose allowed, exactly one ```` ```jac ```` block.
 - [x] P3 train/grpo.py, rl/rewards.py (cache, pool, None on infra_error, rollouts log, purge_pg every N), mixer/train.py grpo stage, smoke_grpo.yaml
 - [x] P3 5 steps dummy reward, 5 steps real reward; save + reload via load_model; log step time + fitting settings; commit
 - [x] P4 script/eval/rl/run_eval.py; readiness on v13-B and v13-A (pass@1/8, compile, mixed frac, grade time); pick adapter; ≤2 difficulty rounds; set grade_*; commit
-- [ ] P5 spike recipe; nohup launch + tee; monitor (reward, compile, zero-std, infra err, RAM, pg size); dev eval final vs base; reward-hacking spot-check; commit
-- [ ] P6 GSPO (if time before 07:30)
-- [ ] P7 docs: CONVENTION, CLAUDE.md, recipe README, eval README, plan divergences; summary at top of this log; commit
+- [x] P5 spike recipe; nohup launch + tee; monitor (reward, compile, zero-std, infra err, RAM, pg size); dev eval final vs base; reward-hacking spot-check; commit
+- [x] P6 GSPO — skipped (no time for 50 matched steps)
+- [x] P7 docs: CONVENTION, CLAUDE.md, recipe README, eval README, plan divergences; summary at top of this log; commit
 
 ## Phase 1: spike dataset — done
 
@@ -226,3 +267,66 @@ but GRPO rollouts take ~300 s for 16. I tried a `GRPOTrainer` subclass that swit
 gradient checkpointing disables the KV cache). The first step was still unfinished after
 10 min (slower), so it was killed and the change reverted. Root cause of the slow rollouts is
 still open (candidates: unmerged-LoRA generation path, the missing fla/causal-conv1d kernels).
+
+## Phase 5: spike run — done
+
+Recipe `script/train/recipe/0930-grpo-functions-spike/grpo.yaml`, launcher `run.sh` (grader self-test →
+train → dev evals), log `logs/0930-grpo-functions-spike.log`, run `output/adapter/0930-grpo-functions-spike/grpo/`
+(checkpoint-25, checkpoint-50, adapter, rollouts/, runs/). Base `0926-v13-A/sft/adapter`, batch 8 × acc 2
+(16 completions = 2 groups of 8), T 0.8, top_p 1.0, 512 new tokens, lr 5e-6, beta 0, dapo loss, token-level IS,
+grade_workers 8 / grade_mem_gb 3 / grade_timeout 20, purge_pg_steps 5. Launched 00:27, finished 04:59
+(train_runtime 16,340 s; the first step took 708 s, then 260–470 s/step).
+
+| steps | reward | compile | pass | zero-std groups | mean length |
+|---|---|---|---|---|---|
+| 1–10 | 0.656 | 0.887 | 0.338 | 0.00 | 179 |
+| 11–20 | 0.659 | 0.894 | 0.375 | 0.00 | 155 |
+| 21–30 | 0.732 | 0.944 | 0.456 | 0.00 | 159 |
+| 31–40 | 0.795 | 0.956 | 0.594 | 0.15 | 166 |
+| 41–50 | 0.773 | 0.919 | 0.550 | 0.10 | 154 |
+
+Monitoring (every step): infra-error rate 0 throughout (800 samples: 354 pass, 354 test_fail,
+58 check_fail, 6 format_fail, 2 timeout); host RAM 12.7–17.0 GB of 61; `~/.cache/jac/pg` peaked at
+4.4 GB and dropped to 57 MB after each purge; grading 3.4–22.9 s per step (mean 4.4 s), i.e.
+generation is ~98% of the step. No stop condition triggered.
+
+Evals (`run_eval.py`, n=8, T=0.8, 512 tokens):
+
+| adapter | split | pass@1 | pass@8 | compile | mean reward | per task |
+|---|---|---|---|---|---|---|
+| v13-A SFT | dev | 0.250 | 0.667 | 0.833 | 0.517 | int_to_roman 0, second_largest 3, compress_ranges 3 |
+| GRPO checkpoint-25 | dev | 0.250 | 0.667 | 1.000 | 0.542 | 0, 3, 3 |
+| **GRPO final (50)** | dev | **0.458** | **1.000** | 0.833 | 0.608 | 2, 4, 5 |
+| v13-A SFT | train | 0.375 | 0.857 | 0.902 | 0.665 | (Phase 4) |
+| GRPO final (50) | train | 0.509 | 0.929 | 0.964 | 0.765 | rle 7, ipv4 7, wordfreq 7, dotted 0, two_sum 6, roman 2, merge 5, caesar 4, anagrams 1, brackets 3, bsearch 8, islands 1, rotate 1, rpn 5 |
+
+Reward-hacking spot-checks (at steps 0–3, 0–24, and all 50): no completion used a forbidden import, `::py::`,
+a test block, `print`/`open`/`exec`; 3 passing samples import `re` (legitimate). Completions flagged by a
+"≥3 `if x == literal { return }`" heuristic were real validation code (valid_ipv4). Lookup-table-like
+completions: 0 in 774 train rollouts. On dev `int_to_roman` (not trained on), 4/8 GRPO samples were
+format_fail because they enumerate numerals as a table until the 512-token cap; SFT's 3 format_fails there
+are long if-chains, also truncated.
+
+Decisions:
+- At step 8 the average was ~455 s/step (ETA ~07:00), so I prepared a resume from checkpoint-25 capped at
+  40 steps. At step 25 the average had fallen to 353 s/step (ETA ~05:20), so the run continued to 50
+  unchanged, with `checkpoint-25` as the fallback. The resume launcher was deleted unused.
+- TRL's metrics go to TensorBoard only (with `report_to: tensorboard` no loss dicts are printed), so the
+  monitor read `runs/*/events*` plus `rollouts/stats.jsonl`.
+- The final adapter was also evaluated on train, and checkpoint-25 on dev, to separate learning from noise.
+  Test split left untouched.
+
+## Phase 6: GSPO — skipped
+
+At 05:03 there was ~2.5 h left before 07:30; 50 matched steps take ~4.6 h. A 25-step GSPO run compared against
+`checkpoint-25` would just fit (~2.3 h plus eval) but leaves no margin, so it was not started. Suggested as the next experiment.
+
+## Phase 7: docs — done
+
+- `docs/CONVENTION.md`: `rl/` domain, `train/` package note, `grpo.py`, `eval/rl/`, `dataset/rl/` layout, `jac_cli` scope.
+- `CLAUDE.md`: RL commands, RL architecture paragraph, `load_trainable`, gotchas (train package, pg growth +
+  purge, `SERVER_TOML` / native lowering, lambda bug, `None` rewards in TRL 0.24, thinking default, slow rollouts).
+- `script/train/recipe/README.md`: `stage: grpo`, its keys, dataset resolution, outputs.
+- `script/eval/README.md`: `eval/rl/run_eval.py` rows and output layout.
+- `docs/RL_Implementation_plan.md`: divergence box under the scope, inline notes on the `None`-reward
+  assumption and the thinking-mode open question.

@@ -1,6 +1,6 @@
 # GRPO spike on dataset/rl/functions/spike-sample-20 (train split, 14 tasks), from the v13 SFT adapter
 # picked by the readiness eval (logs/rl_overnight.md, Phase 4). Group size 8, 2 groups per update.
-# max_steps is time-boxed to finish overnight (~320 s/step on the 5080, generation-bound).
+# max_steps is time-boxed to finish overnight (~350-390 s/step on the 5080, generation-bound; see logs/rl_overnight.md).
 recipe:
   name: grpo-functions-spike
   stage: grpo
@@ -18,7 +18,7 @@ hyperparams:
   grad_acc: 2                   # 16 completions per update = 2 groups of 8
   lr: 5.0e-6
   warmup_steps: 3
-  max_steps: 50                 # ~330 s/step → ~4.6 h, time-boxed to end before 06:00
+  max_steps: 50                 # time-boxed to end before 06:00 (measured ~355 s/step avg)
   save_steps: 25
   num_generations: 8
   temperature: 0.8
