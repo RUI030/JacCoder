@@ -349,3 +349,12 @@ merges the two into the same dict shape as before, so the harness and graders ar
 `check_splits` also fails if the meta's task ids and `tasks/` differ. `grade_completion` reads meta via
 `task_meta`. Checks: `test_functions.py --workers 8` all PASS; the spike recipe still loads 14 rows.
 Docs updated: `docs/RL.md` tree, plan (divergence note + layout), `CLAUDE.md`, `CONVENTION.md`.
+
+## Follow-up (09-30): Nitin-osp-compile-only as RL source — skipped
+
+Looked at `dataset/cpt/Nitin-osp-compile-only` (5,157 OSP programs, `jac check` only, no tests; 970 keep a
+natural-language request comment; median ~2,000 tokens, 1,133 at ≤ 800). 40 sampled programs all `jac run`,
+print the same stdout twice (median 6 lines, ~0.4 s). Possible task: strip some walker/ability bodies and
+reward stdout matching the reference. v13-B's CPT includes this set, v13-A's doesn't; no overlap with v13-A's
+other data (origin_id or code). **Skipped by your decision:** nobody has verified the programs are correct,
+and an output-match reward would teach the model to reproduce the reference's bugs.
