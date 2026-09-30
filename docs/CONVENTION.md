@@ -243,7 +243,7 @@ dataset/
 │   ├── diff/, session/           # git diffs / session logs
 ├── cpt/<DS_NAME>/                # CPT output (train.jsonl only)
 ├── sft/<TASK_TYPE>/<DS_NAME>/    # SFT output (train.jsonl + valid.jsonl)
-└── rl/<TASK_TYPE>/<SET_NAME>/    # RL tasks: tasks/<id>/ (model-visible), tests/<id>/ (grader-only), splits/*.txt
+└── rl/<TASK_TYPE>/<SET_NAME>/    # RL tasks: meta.json (per set), tasks/<id>/ (model-visible), tests/<id>/ (grader-only), splits/*.txt
 ```
 
 `raw/` is gitignored. The `train.jsonl` / `valid.jsonl` under `cpt/` and

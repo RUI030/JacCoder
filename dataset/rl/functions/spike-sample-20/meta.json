@@ -1,0 +1,38 @@
+{
+  "task_type": "functions",
+  "target": "main.jac",
+  "output_format": "jac_block",
+  "forbidden": [
+    "os",
+    "sys",
+    "subprocess",
+    "shutil",
+    "socket",
+    "pathlib",
+    "ctypes",
+    "importlib",
+    "::py::"
+  ],
+  "tasks": {
+    "balanced_brackets": {"entrypoints": ["balanced_brackets"], "difficulty": "easy"},
+    "binary_search": {"entrypoints": ["binary_search"], "difficulty": "easy"},
+    "caesar_shift": {"entrypoints": ["caesar_shift"], "difficulty": "easy"},
+    "compress_ranges": {"entrypoints": ["compress_ranges"], "difficulty": "medium"},
+    "count_islands": {"entrypoints": ["count_islands"], "difficulty": "medium"},
+    "dotted_keys": {"entrypoints": ["dotted_keys"], "difficulty": "medium"},
+    "eval_rpn": {"entrypoints": ["eval_rpn"], "difficulty": "medium"},
+    "group_anagrams": {"entrypoints": ["group_anagrams"], "difficulty": "medium"},
+    "int_to_roman": {"entrypoints": ["int_to_roman"], "difficulty": "easy"},
+    "max_subarray": {"entrypoints": ["max_subarray"], "difficulty": "medium"},
+    "merge_intervals": {"entrypoints": ["merge_intervals"], "difficulty": "medium"},
+    "pascal_row": {"entrypoints": ["pascal_row"], "difficulty": "easy"},
+    "rle_encode": {"entrypoints": ["rle_encode"], "difficulty": "easy"},
+    "roman_to_int": {"entrypoints": ["roman_to_int"], "difficulty": "easy"},
+    "rotate_matrix": {"entrypoints": ["rotate_matrix"], "difficulty": "easy"},
+    "second_largest": {"entrypoints": ["second_largest"], "difficulty": "easy"},
+    "two_sum": {"entrypoints": ["two_sum"], "difficulty": "easy"},
+    "valid_ipv4": {"entrypoints": ["valid_ipv4"], "difficulty": "easy"},
+    "word_frequency": {"entrypoints": ["word_frequency"], "difficulty": "easy"},
+    "wrap_text": {"entrypoints": ["wrap_text"], "difficulty": "medium"}
+  }
+}

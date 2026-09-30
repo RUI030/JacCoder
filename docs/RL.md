@@ -13,9 +13,10 @@ Use our own grading suite for RL. The vendored [Nitin-test](../script/eval/Nitin
 ```text
 dataset/rl/
   <task_name>/<set_name>/
+    meta.json             # Harness-only: shared fields (task type, target filename, output format,
+                          # forbidden imports) + `tasks: {<id>: {entrypoints, difficulty}}`
     tasks/<id>/
       request.md          # Problem statement and public examples
-      meta.json           # Harness-only ID, target filename, and output format
       starter.jac         # Single-function starting code
       files/              # Optional starting project files
     tests/<id>/            # Grader-only; never copied into the model workspace
@@ -28,9 +29,9 @@ script/rl/graders/
   <task_name>.py           # Shared grading logic, not duplicated per problem
 ```
 
-`tasks/<id>/` is the source task folder, not the model's workspace. The harness shows only `request.md`, `starter.jac`, and needed `files/` to the model; it reads `meta.json` itself. Hidden tests and grading-only data stay under `tests/<id>/`. `splits/` identifies training, development, and final-evaluation tasks.
+`tasks/<id>/` is the source task folder, not the model's workspace. The harness shows only `request.md`, `starter.jac`, and needed `files/` to the model; it reads the set's `meta.json` itself. Hidden tests and grading-only data stay under `tests/<id>/`. `splits/` identifies training, development, and final-evaluation tasks.
 
-For a single-file task, the harness combines `request.md` and `starter.jac` into the model input and asks for one fenced `jac` block. [`extract_jac_blocks()`](../script/utils/jac_block.py) extracts it; `meta.json` supplies the destination filename. The grader receives the resulting folder of `.jac` files, not the raw model response.
+For a single-file task, the harness combines `request.md` and `starter.jac` into the model input and asks for one fenced `jac` block. [`extract_jac_blocks()`](../script/utils/jac_block.py) extracts it; the set's `meta.json` supplies the destination filename. The grader receives the resulting folder of `.jac` files, not the raw model response.
 
 ## Design of the experiment
 
@@ -54,7 +55,7 @@ def add(a: int, b: int) -> int {
 ```
 
 - **Model:** Receives the request and starter, plus a common instruction to return the complete file in exactly one fenced `jac` block.
-- **Harness:** Renders the prompt from `request.md` and `starter.jac`, samples completions, uses `extract_jac_blocks()` to require one block, and writes it to the target path from harness-only `meta.json`.
+- **Harness:** Renders the prompt from `request.md` and `starter.jac`, samples completions, uses `extract_jac_blocks()` to require one block, and writes it to the target path from the set's harness-only `meta.json`.
 - **Grader:** Runs `jac check` and hidden tests. Initial reward: `0` if compilation fails; otherwise `tests_passed / tests_total`.
 - **Spike:** Measure compile rate, test pass rate, reward variation within groups, and grading time.
 

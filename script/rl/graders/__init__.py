@@ -1,11 +1,11 @@
 """Grader registry plus the grading path shared by training rewards and eval."""
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from rl.graders import functions
 from rl.harness import materialize
+from rl.task import task_meta
 
 # Setting =================================================
 GRADERS = {"functions": functions.grade}
@@ -20,7 +20,7 @@ def tests_dir_of(task_dir: str | Path) -> Path:
 
 def grade_completion(completion, task_dir: str | Path, timeout: float, mem_gb: float) -> dict:
     """Materialize one completion and grade it with its task type's grader."""
-    meta = json.loads((Path(task_dir) / "meta.json").read_text())
+    meta = task_meta(task_dir)
     files, reason = materialize(completion, meta)
     if files is None:
         return {"status": "format_fail", "check_pass": False, "passed": 0, "total": 0,

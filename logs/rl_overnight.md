@@ -338,3 +338,14 @@ At your request, `0930-grpo-functions-spike/grpo.yaml` now uses `epochs: 7` (49 
 7 epochs + 1 step: per-task step counts from `rollouts/` were 7 for 12 tasks and 8 for roman_to_int and
 word_frequency. The run's own `recipe.yaml` copy still records `max_steps: 50`. `recipe/README.md` recommends
 `epochs` for GRPO. `dev/smoke_grpo.yaml` keeps `max_steps: 5` (a plumbing test, shorter than one epoch).
+
+## Follow-up (09-30): one meta.json per set
+
+At your request, the 20 `tasks/<id>/meta.json` files were replaced by one
+`dataset/rl/functions/spike-sample-20/meta.json`: shared fields once (`task_type`, `target`, `output_format`,
+`forbidden`), plus `tasks: {<id>: {entrypoints, difficulty}}`. `tasks/<id>/` now holds only what the model
+sees (`request.md`, `starter.jac`). `rl/task.py` gained `set_meta` (cached) and `task_meta(task_dir)`, which
+merges the two into the same dict shape as before, so the harness and graders are unchanged;
+`check_splits` also fails if the meta's task ids and `tasks/` differ. `grade_completion` reads meta via
+`task_meta`. Checks: `test_functions.py --workers 8` all PASS; the spike recipe still loads 14 rows.
+Docs updated: `docs/RL.md` tree, plan (divergence note + layout), `CLAUDE.md`, `CONVENTION.md`.

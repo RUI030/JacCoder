@@ -10,7 +10,8 @@
 > - **`script/train/` became a package** (`train.utils`, `train.mixer`), because `script/train/utils.py` shadowed the `script/utils/` package that `rl/` imports.
 > - `load_trainable` also calls `utils/model.restore_architectures` (GRPO's `generate()` fails on the Unsloth text-only VLM `architectures = None` bug).
 > - Phases ran in the order dataset → grader → plumbing → readiness → spike. `smoke_grpo.yaml` uses 8 generations × 1 group (not 2 × 2) and the whole train split.
-> - Extra GRPO keys: `enable_thinking`, `max_grad_norm`, `reward` (`functions` | `constant`), `purge_pg_steps`; `meta.json` adds `difficulty` and `forbidden`.
+> - Extra GRPO keys: `enable_thinking`, `max_grad_norm`, `reward` (`functions` | `constant`), `purge_pg_steps`; meta adds `difficulty` and `forbidden`.
+> - **One `meta.json` per set, not per task:** shared fields once, plus `tasks: {<id>: {entrypoints, difficulty}}`; `tasks/<id>/` holds only model-visible files. `rl/task.py:task_meta(task_dir)` merges them.
 
 ## What we take from the Unsloth notebook
 
@@ -50,7 +51,8 @@ Each new script keeps the repo layout: a `# Setting` block of aligned constants,
 ```
 dataset/rl/                                   NEW  (checked in: small, hand-written)
 └── functions/spike-sample-20/
-    ├── tasks/<id>/{request.md, meta.json, starter.jac}
+    ├── meta.json                             shared fields + tasks: {<id>: {entrypoints, difficulty}}
+    ├── tasks/<id>/{request.md, starter.jac}
     ├── tests/<id>/{tests.jac, solution.jac}  grader-only; solution.jac is the grader self-test
     ├── splits/{train,dev,test}.txt
     └── statistic.json
@@ -114,7 +116,7 @@ eval/rl/run_eval.py → output/eval/rl/<task>/<set>/<tag>_<stamp>/{samples,resul
 
 - 20 problems written by hand, for example 14 train / 3 dev / 3 test. Each problem needs:
   - `request.md` and `starter.jac`, as in RL.md.
-  - `meta.json`: `{"id", "task_type": "functions", "target": "main.jac", "entrypoints": ["add"], "output_format": "jac_block"}`.
+  - an entry in the set's `meta.json` (`{"task_type": "functions", "target": "main.jac", "output_format": "jac_block", "forbidden": [...], "tasks": {"add": {"entrypoints": ["add"], "difficulty": "easy"}}}`).
   - `tests/<id>/tests.jac`: hidden tests in the layout described in [Test setup](#test-setup-jac-0361).
   - `tests/<id>/solution.jac`: the reference answer. `test_functions.py` uses it to check that the grader gives it full reward.
 - Every task must be covered by a split file. The loader errors on ids that are in no split or in more than one.
@@ -122,7 +124,7 @@ eval/rl/run_eval.py → output/eval/rl/<task>/<set>/<tag>_<stamp>/{samples,resul
 
 ### `script/rl/task.py`
 
-- `load_split(set_dir, split) -> list[dict]`: reads `splits/<split>.txt`, then each task's `meta.json`, `request.md` and `starter.jac`. Only the files the model may see, plus `meta`.
+- `load_split(set_dir, split) -> list[dict]`: reads `splits/<split>.txt`, then the set's `meta.json` and each task's `request.md` and `starter.jac`. Only the files the model may see, plus `meta`.
 - `to_dataset(tasks, prompts) -> Dataset`: builds one row per task. The `prompt` column comes from `harness.render_prompt`; `task_dir` and `task_type` are passed through for the reward functions.
 - The model-visible files and `tests/` are kept apart here: nothing under `tests/` is ever read into a prompt.
 

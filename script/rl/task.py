@@ -1,6 +1,7 @@
 """Load an RL task set (dataset/rl/<task>/<set>/) into task dicts and an HF Dataset."""
 
 import json, random
+from functools import cache
 from pathlib import Path
 
 from datasets import Dataset
@@ -13,10 +14,28 @@ SEED   = 3407
 
 
 # Functions ===============================================
+@cache
+def set_meta(set_dir: str | Path) -> dict:
+    """The set's meta.json: fields shared by every task, plus `tasks: {id: per-task fields}`."""
+    return json.loads((Path(set_dir) / "meta.json").read_text())
+
+
+def task_meta(task_dir: str | Path) -> dict:
+    """One task's meta: the set's shared fields merged with its own entry and its id."""
+    task_dir = Path(task_dir)
+    meta = set_meta(task_dir.parent.parent)
+    shared = {k: v for k, v in meta.items() if k != "tasks"}
+    return {"id": task_dir.name, **shared, **meta["tasks"][task_dir.name]}
+
+
 def check_splits(set_dir: str | Path) -> None:
-    """Every task id must be in exactly one split file."""
+    """Every task id must have a meta entry and be in exactly one split file."""
     set_dir = Path(set_dir)
     ids = {p.name for p in (set_dir / "tasks").iterdir() if p.is_dir()}
+    listed = set(set_meta(set_dir)["tasks"])
+    if ids != listed:
+        raise ValueError(f"meta.json tasks differ from tasks/: missing {sorted(ids - listed)}, "
+                         f"extra {sorted(listed - ids)}")
     seen: dict[str, str] = {}
     for split in SPLITS:
         f = set_dir / "splits" / f"{split}.txt"
@@ -40,7 +59,7 @@ def load_split(set_dir: str | Path, split: str) -> list[dict]:
         tasks.append({
             "id":       tid,
             "task_dir": str(tdir.resolve()),
-            "meta":     json.loads((tdir / "meta.json").read_text()),
+            "meta":     task_meta(tdir),
             "request":  (tdir / "request.md").read_text(),
             "starter":  (tdir / "starter.jac").read_text(),
         })
