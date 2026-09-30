@@ -1,0 +1,21 @@
+{
+  "id": "wrap_text",
+  "task_type": "functions",
+  "target": "main.jac",
+  "entrypoints": [
+    "wrap_text"
+  ],
+  "output_format": "jac_block",
+  "difficulty": "medium",
+  "forbidden": [
+    "os",
+    "sys",
+    "subprocess",
+    "shutil",
+    "socket",
+    "pathlib",
+    "ctypes",
+    "importlib",
+    "::py::"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "tasks": 20,
+  "splits": {
+    "train": 14,
+    "dev": 3,
+    "test": 3
+  },
+  "difficulty": {
+    "easy": 12,
+    "medium": 8
+  },
+  "hidden_tests": 109
+}

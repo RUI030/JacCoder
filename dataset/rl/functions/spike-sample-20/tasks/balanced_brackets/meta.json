@@ -1,0 +1,21 @@
+{
+  "id": "balanced_brackets",
+  "task_type": "functions",
+  "target": "main.jac",
+  "entrypoints": [
+    "balanced_brackets"
+  ],
+  "output_format": "jac_block",
+  "difficulty": "easy",
+  "forbidden": [
+    "os",
+    "sys",
+    "subprocess",
+    "shutil",
+    "socket",
+    "pathlib",
+    "ctypes",
+    "importlib",
+    "::py::"
+  ]
+}

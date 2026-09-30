@@ -1,0 +1,21 @@
+{
+  "id": "max_subarray",
+  "task_type": "functions",
+  "target": "main.jac",
+  "entrypoints": [
+    "max_subarray"
+  ],
+  "output_format": "jac_block",
+  "difficulty": "medium",
+  "forbidden": [
+    "os",
+    "sys",
+    "subprocess",
+    "shutil",
+    "socket",
+    "pathlib",
+    "ctypes",
+    "importlib",
+    "::py::"
+  ]
+}

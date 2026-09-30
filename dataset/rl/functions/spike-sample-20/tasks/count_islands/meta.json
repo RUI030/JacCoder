@@ -1,0 +1,21 @@
+{
+  "id": "count_islands",
+  "task_type": "functions",
+  "target": "main.jac",
+  "entrypoints": [
+    "count_islands"
+  ],
+  "output_format": "jac_block",
+  "difficulty": "medium",
+  "forbidden": [
+    "os",
+    "sys",
+    "subprocess",
+    "shutil",
+    "socket",
+    "pathlib",
+    "ctypes",
+    "importlib",
+    "::py::"
+  ]
+}

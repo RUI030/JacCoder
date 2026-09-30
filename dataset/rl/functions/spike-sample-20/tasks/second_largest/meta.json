@@ -1,0 +1,21 @@
+{
+  "id": "second_largest",
+  "task_type": "functions",
+  "target": "main.jac",
+  "entrypoints": [
+    "second_largest"
+  ],
+  "output_format": "jac_block",
+  "difficulty": "easy",
+  "forbidden": [
+    "os",
+    "sys",
+    "subprocess",
+    "shutil",
+    "socket",
+    "pathlib",
+    "ctypes",
+    "importlib",
+    "::py::"
+  ]
+}
