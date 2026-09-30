@@ -8,22 +8,27 @@ September 30, 2026
 
 ## 0. Preflight
 
-Before building RL, check there is something to learn: sample v1.3 SFT 8 times per problem on
-Nitin's function test suite (972 problems, temperature 1.0).
+Before building RL, check there is something to learn: run v1.3 SFT on Nitin's function test
+suite (972 problems) two ways: once with greedy decoding, and 8 random samples per problem at
+temperature 1.0. Rows split the problems by the greedy result.
 
-| | problems | pass@1 | pass@8 |
-|---|---:|---:|---:|
-| all | 972 | 46.2% | 69.8% |
-| passed with greedy | 563 | 73.5% | 97.7% |
-| failed with greedy | 409 | 8.8% | 31.3% |
+| problems | count | greedy pass | pass@1 (1 random sample) | pass@8 (≥1 of 8 passes) | 1–7 of 8 pass | 0 of 8 pass |
+|---|---:|---:|---:|---:|---:|---:|
+| all | 972 | 57.9% (563) | 46.2% (3,596 / 7,776 samples) | 69.8% (678) | 504 | 294 |
+| greedy passes | 563 | 100% (563) | 73.5% (3,309 / 4,504) | 97.7% (550) | 376 | 13 |
+| greedy fails | 409 | 0% (0) | 8.8% (287 / 3,272) | 31.3% (128) | 128 | 281 |
+
+- greedy pass = problems whose single greedy answer passes all hidden tests
+- pass@1 = chance that one random sample passes = passing samples / all samples
+- pass@8 = problems where at least one of the 8 samples passes
+- 1–7 of 8 pass = problems with mixed results → the ones GRPO can learn from
+
+**What it shows:**
 
 - pass@8 is well above pass@1, so the model can often solve a problem but not reliably
 - 504 / 972 problems are solved in some samples but not all → GRPO gets a signal there
 - 294 problems are never solved in 8 tries → no signal, need easier tasks or a stronger base
 - Preflight model: v1.3-B (the only model with an n=8 run). RL below starts from v1.3-A.
-
-**Next:** do not train on Nitin's suite (it is our external benchmark). Build our own tasks and
-first verify the signal is not 0.
 
 ---
 
