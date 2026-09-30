@@ -42,19 +42,21 @@ script/
 ├── train/
 │   ├── cpt.py            run_cpt(config, ds) + single-dataset CLI
 │   ├── sft.py            run_sft(config, ds) + single-dataset CLI
-│   ├── mixer.py          recipe → mixed HF Dataset (concat / interleave)
+│   ├── mixer.py          recipe → mixed HF Dataset (concat / interleave / sequential)
 │   ├── train.py          --recipe CLI dispatcher
-│   ├── utils.py          finalize_out_dir / print_gpu_banner / save_adapter
+│   ├── utils.py          finalize_out_dir / model_source / print_gpu_banner / save_adapter
 │   └── recipe/           *.yaml / *.py recipe files + README.md
 ├── eval/
 │   ├── gate.py           pass/fail gating from generated jac
 │   ├── batch.py          batched adapter inference
-│   ├── compare/          confusion matrix / taxonomy comparison
+│   ├── compare/          confusion matrix / taxonomy / heatmap comparison
 │   ├── infer/            adapter + openrouter inference backends
-│   └── probe/            loss / SVD / adapter probes
+│   ├── probe/            loss / SVD / adapter probes
+│   └── Nitin-test/       vendored hidden-test harness (see PROVENANCE.md)
 ├── spike/                experimental scripts (own README + spike_utils.py)
 ├── inference.py          REPL chat
-└── merge_lora.py         LoRA merge + export
+├── merge_lora.py         LoRA merge + export
+└── plot_loss.py, plot_usage.py   training-loss / resource-usage charts
 ```
 
 
@@ -63,7 +65,7 @@ script/
 - `script/utils/` is for helpers used across at least two of `dataset/`,
   `train/`, `eval/`, and the top-level scripts. Every current entry qualifies:
   `classifier` and `io` are used by every dataset script; `jac_block` is used
-  by `dataset/sft/qa.py` and `eval/gate.py`; `jac_cli` is used by `eval/gate.py`
+  by `dataset/sft/{qa,osp}.py` and `eval/gate.py`; `jac_cli` is used by `eval/gate.py`
   (and is the intended entry point for any code that shells out to `jac`);
   `model` is used by `inference.py` and multiple `eval/` scripts.
 - Helpers used by one domain only live inside that domain:

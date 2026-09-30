@@ -2,7 +2,9 @@
 
 JacCoder is a small training workspace for Jac-focused language model work. It currently centers on:
 
-- continual pretraining (CPT) with Unsloth
+- continual pretraining (CPT) and supervised fine-tuning (SFT) with Unsloth
+- recipe-driven multi-dataset training
+- adapter evaluation (`jac check` gate, hidden-test harness)
 - local adapter inference
 - LoRA merge/export
 - dataset storage and preprocessing
@@ -18,23 +20,28 @@ The repo is organized so that most day-to-day work happens in three folders:
 ```text
 JacCoder/
 ├── dataset/
-│   ├── CPT/              # text-only training datasets
-│   ├── SFT/              # instruction / response datasets
+│   ├── cpt/              # text-only training datasets
+│   ├── sft/              # instruction / response datasets
 │   └── raw/              # unprocessed source material
 ├── docs/
+│   ├── CONVENTION.md     # code layout and style (authoritative)
 │   ├── DATASET.md        # dataset format notes
 │   ├── SCRIPT.md         # script notes
 │   └── reference/        # notebooks and external references
 ├── script/
 │   ├── train/
 │   │   ├── cpt.py        # CPT training entrypoint
-│   │   └── sft.py        # reserved for SFT, not implemented yet
+│   │   ├── sft.py        # SFT training entrypoint
+│   │   ├── train.py      # recipe-driven training (recipe/)
+│   │   └── recipe/       # training recipes + README.md
 │   ├── dataset/
-│   │   ├── cpt/          # raw → CPT split builders (e.g. singlefile.py)
-│   │   ├── sft/          # raw → SFT split builders (js2jac.py, qa.py, code_complete.py)
+│   │   ├── cpt/          # raw → CPT split builders (file.py, repo.py)
+│   │   ├── sft/          # raw → SFT split builders (js2jac.py, osp.py, farm.py, ...)
 │   │   ├── parser/       # chunking / AST helpers for raw sources
 │   │   ├── template/     # prompt_template.json, ds_report.json
 │   │   └── statistics.py # dataset stats
+│   ├── eval/             # inference backends, gate, probes, Nitin-test harness
+│   ├── utils/            # shared helpers (model loading, jac CLI, jac blocks)
 │   ├── inference.py      # local chat/inference
 │   └── merge_lora.py     # merge LoRA adapter into a standalone model
 ├── output/               # training outputs and checkpoints
@@ -68,10 +75,10 @@ bash setup_env.sh myenv
 Then activate it:
 
 ```bash
-mamba activate tornith
+mamba activate jacllm
 ```
 
-If you used a custom name, replace `tornith` with that name.
+If you used a custom name, replace `jacllm` with that name.
 
 ## Dataset Format
 
@@ -88,22 +95,13 @@ For more details, please see [`docs/DATASET.md`](docs/DATASET.md).
 
 ### Run CPT training
 
-Edit the config block at the top of [`script/train/cpt.py`](script/train/cpt.py) first:
-
-- `BASE_MODEL`
-- `ADAPTER_PATH`
-- `DATASET`
-- `TRAIN_SET`
-- `OUT_DIR`
-- LoRA and training hyperparameters
-
-Then run:
+Defaults (base model, LoRA and training hyperparameters) live in `default_config()` in [`script/train/cpt.py`](script/train/cpt.py). Pick the dataset and common overrides from the CLI:
 
 ```bash
-python script/train/cpt.py
+python script/train/cpt.py --ds <dataset> [--steps N] [--epochs N] [--lr 5e-5] [--rank 128]
 ```
 
-Outputs go into `output/`.
+Outputs go into `output/adapter/<MM-DD_HH-MM>-<run_name>/`.
 
 #### Continue training
 
@@ -130,12 +128,12 @@ python script/train/cpt.py --ds <new_dataset> --adapter output/adapter/<run>/ada
 
 `--resume` and `--adapter` are mutually exclusive.
 
-**Frozen by the loaded adapter in both modes** (silently ignored if you pass them): `--rank`, `TARGET_MODULE`, `LORA_ALPHA`, `RSLORA`. These define the adapter's tensor shapes and cannot change mid-life.
+**Frozen by the loaded adapter in both modes** (silently ignored if you pass them): `--rank`, `target_module`, `lora_alpha`, `rslora`. These define the adapter's tensor shapes and cannot change mid-life.
 
 To change any shape-affecting param, **merge the adapter into the base first**, then start a fresh run:
 
 1. `python script/merge_lora.py` — merge the old adapter into a standalone model
-2. Point `BASE_MODEL` in `cpt.py` at the merged output
+2. Point `base_model` (in `default_config()` or the recipe) at the merged output
 3. Run without `--adapter` / `--resume` (from-scratch on top of the merged base) with the new hyperparameters
 
 To see training loss, see
@@ -152,29 +150,25 @@ tensorboard --logdir JacCoder/output/adapter/<YOUR_EXPERIMENT_NAME>/runs
 
 `script/train/sft.py` trains on instruction/response JSONL under `dataset/sft/<task>/<dataset>/{train,valid}.jsonl`. Build these first with a script in `script/dataset/sft/` (see [Prepare an SFT dataset](#prepare-an-sft-dataset)).
 
-Edit the config block at the top of [`script/train/sft.py`](script/train/sft.py):
-
-- `BASE_MODEL`
-- `TASK_TYPE` (e.g. `code_completion`, `js2jac`, `py2jac`, `code_gen`, `qa`)
-- `DATASET` (folder name under `dataset/sft/<TASK_TYPE>/`)
-- `CHAT_TEMPLATE`, `MAX_SEQ_LENGTH`
-- LoRA and training hyperparameters
-
-Then run:
-
-```bash
-python script/train/sft.py
-```
-
-Common CLI overrides (beat the in-file defaults):
+Defaults live in `default_config()` in [`script/train/sft.py`](script/train/sft.py). Pick the task (folder under `dataset/sft/`) and dataset from the CLI:
 
 ```bash
 python script/train/sft.py --task js2jac --ds Nitin-js2jac --epochs 3 --lr 2e-4
 ```
 
-Continue training uses the same `--resume` / `--adapter` semantics as CPT — see [Continue training](#continue-training) above; they are mutually exclusive and the LoRA shape params (`--rank`, `TARGET_MODULE`, `LORA_ALPHA`, `RSLORA`) are frozen by any loaded adapter.
+Continue training uses the same `--resume` / `--adapter` semantics as CPT — see [Continue training](#continue-training) above; they are mutually exclusive and the LoRA shape params (`--rank`, `target_module`, `lora_alpha`, `rslora`) are frozen by any loaded adapter.
 
-`DO_EVAL` is off by default (SFT eval OOMs on 16GB VRAM); use `script/eval/loss.py` post-hoc against `valid.jsonl`.
+`do_eval` is off by default (SFT eval OOMs on 16GB VRAM); evaluate post-hoc with `script/eval/batch.py` (see [`script/eval/README.md`](script/eval/README.md)).
+
+### Run recipe training
+
+For multi-dataset runs, a recipe sets the stage, hyperparameters and dataset mix:
+
+```bash
+python script/train/train.py --recipe script/train/recipe/<name>.yaml
+```
+
+See [`script/train/recipe/README.md`](script/train/recipe/README.md) for the schema and mixing strategies.
 
 #### Prepare an SFT dataset
 
@@ -182,8 +176,11 @@ Each builder under `script/dataset/sft/` reads raw JSONL from `dataset/raw/<form
 
 | Builder | Task | Raw input |
 | --- | --- | --- |
-| `js2jac.py` | `js2jac` | `dataset/raw/jac/Nitin-js2jac/` |
-| `code_complete.py` | `code_completion` | `dataset/raw/jac/Nitin-10k-jac-functions/` |
+| `js2jac.py` | `js2jac` | `dataset/raw/jac/Nitin-3k-js2jac-idiom/` |
+| `code_complete.py` | `code_completion` | `dataset/raw/jac/Nitin-9k-py2jac-idiom/` |
+| `osp.py` | `osp` | `dataset/raw/jac/Nitin-1k-osp/` |
+| `farm.py` | `farm` | `dataset/raw/jac/Nitin-2k-farm/` |
+| `scaffold2impl.py` | `scaffold2impl` | `dataset/raw/repo/` |
 | `qa.py` | routes to `qa` / `py2jac` / `code_gen` | `dataset/raw/agent-synth/sft_train.jsonl` |
 
 Edit the config block at the top of the chosen script (`DS_NAME`, filter fields, `VALID_SIZE`, `SEED`, `OUT_FORMAT`) then run e.g.:
@@ -199,7 +196,7 @@ Prompt templates live in `script/dataset/template/prompt_template.json`.
 Edit the model settings in [`script/inference.py`](script/inference.py):
 
 - `BASE_MODEL`
-- `ADAPTER_PATH`
+- `MODEL_PATH` (merged model or adapter dir)
 - generation settings such as `MAX_NEW_TOKENS` and `TEMPERATURE`
 
 Then run:
@@ -212,50 +209,22 @@ This opens a terminal chat loop. Use `/clear` to reset conversation history.
 
 ### Merge a LoRA adapter
 
-Edit the config block in [`script/merge_lora.py`](script/merge_lora.py):
-
-- `ADAPTER`
-- `Q4bit`
-- `max_seq_length`
-
-Then run:
-
 ```bash
-python script/merge_lora.py
+python script/merge_lora.py --adapter output/adapter/<run>/adapter [--out output/model/<name>] [--no-4bit] [--gguf q4_k_m]
 ```
 
-Merged outputs are written under `script/merged/` with the adapter folder name.
+Merged outputs are written to `output/model/<adapter_dir_name>` unless `--out` is given. Defaults sit in the Setting block of [`script/merge_lora.py`](script/merge_lora.py).
 
 ## Recommended Workflow
 
-1. Prepare or verify a CPT dataset under `dataset/CPT/`.
-2. Run `script/train/cpt.py` to produce adapter checkpoints in `output/`.
-3. Point `script/inference.py` at a checkpoint and validate behavior.
+1. Prepare or verify datasets under `dataset/cpt/` and `dataset/sft/`.
+2. Run `script/train/train.py --recipe ...` (or `cpt.py` / `sft.py`) to produce adapter checkpoints in `output/adapter/`.
+3. Evaluate with `script/eval/` (see [`script/eval/README.md`](script/eval/README.md)), or point `script/inference.py` at a checkpoint.
 4. Run `script/merge_lora.py` when you need a merged export.
-
-## Should You Add Bash Wrappers?
-
-Yes, for the stable workflows.
-
-The current scripts are usable, but they require manual edits inside Python files. A thin bash wrapper is worth adding for:
-
-- `train-cpt`
-- `chat-local`
-- `merge-lora`
-
-The wrapper should only pass arguments and environment variables. Keep the training logic in Python. A good next step is:
-
-```text
-script/run/
-├── train_cpt.sh
-├── inference.sh
-└── merge_lora.sh
-```
-
-That gives users a stable entrypoint without duplicating logic.
 
 ## Related Docs
 
+- [`docs/CONVENTION.md`](docs/CONVENTION.md)
 - [`docs/DATASET.md`](docs/DATASET.md)
 - [`docs/SCRIPT.md`](docs/SCRIPT.md)
 - [`docs/DEBUG.md`](docs/DEBUG.md)
