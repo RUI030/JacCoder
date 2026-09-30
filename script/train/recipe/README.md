@@ -203,7 +203,10 @@ hyperparams:
   purge_pg_steps: 5              # wipe jac's embedded postgres every N steps (jac test leaves ~50 MB per sample)
 ```
 
-Groups per update = `batch_size × grad_acc / num_generations`. A run writes
+Groups per update = `batch_size × grad_acc / num_generations`. Prefer `epochs` over
+`max_steps`: one epoch shows every task exactly once, i.e. `n_tasks / groups per update`
+steps (14 tasks, 2 groups → 7 steps), so every task gets the same number of updates;
+`max_steps` that is not a multiple of that leaves the last epoch partial. A run writes
 `rollouts/step_<N>.jsonl` (completion, status, reward, grading ms) and
 `rollouts/stats.jsonl` (grading time, status counts, infra-error rate, host
 RAM, postgres size) next to its checkpoints. TensorBoard gets

@@ -330,3 +330,11 @@ At 05:03 there was ~2.5 h left before 07:30; 50 matched steps take ~4.6 h. A 25-
 - `script/eval/README.md`: `eval/rl/run_eval.py` rows and output layout.
 - `docs/RL_Implementation_plan.md`: divergence box under the scope, inline notes on the `None`-reward
   assumption and the thinking-mode open question.
+
+## Follow-up (09-30): spike recipe counted in epochs
+
+At your request, `0930-grpo-functions-spike/grpo.yaml` now uses `epochs: 7` (49 steps, every train task exactly
+7 times) and `save_steps: 7` (one checkpoint per epoch) instead of `max_steps: 50`. The 09-30 run's 50 steps were
+7 epochs + 1 step: per-task step counts from `rollouts/` were 7 for 12 tasks and 8 for roman_to_int and
+word_frequency. The run's own `recipe.yaml` copy still records `max_steps: 50`. `recipe/README.md` recommends
+`epochs` for GRPO. `dev/smoke_grpo.yaml` keeps `max_steps: 5` (a plumbing test, shorter than one epoch).
