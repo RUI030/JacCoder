@@ -21,7 +21,7 @@ format rule = any prose allowed, exactly one ```` ```jac ```` block.
 Key numbers:
 - Spike (GRPO, v13-A SFT → 50 steps, 16 completions/step, 2 groups × 8, lr 5e-6, beta 0): 4 h 32 min,
   ~327 s/step avg. Train reward 0.656 → 0.795 (steps 1–10 → 31–40), pass rate 0.34 → 0.59,
-  compile 0.89 → 0.96. 0 infra errors in 800 graded samples, host RAM ≤ 17.0 GB, pg dir ≤ 4.4 GB (purged every 5 steps).
+  compile 0.89 → 0.96. 0 infra errors in 774 graded samples, host RAM ≤ 17.0 GB, pg dir ≤ 4.4 GB (purged every 5 steps).
 - Train split (n=8, T=0.8), SFT v13-A → GRPO: pass@1 0.375 → **0.509**, pass@8 0.857 → 0.929,
   compile 0.902 → 0.964, mean reward 0.665 → 0.765.
 - **Dev split (3 tasks × 8), SFT v13-A → GRPO: pass@1 0.250 → 0.458, pass@8 0.667 → 1.000**, mean reward
@@ -285,7 +285,7 @@ grade_workers 8 / grade_mem_gb 3 / grade_timeout 20, purge_pg_steps 5. Launched 
 | 31–40 | 0.795 | 0.956 | 0.594 | 0.15 | 166 |
 | 41–50 | 0.773 | 0.919 | 0.550 | 0.10 | 154 |
 
-Monitoring (every step): infra-error rate 0 throughout (800 samples: 354 pass, 354 test_fail,
+Monitoring (every step): infra-error rate 0 throughout (774 unique graded samples of 800 generated; duplicates are graded once: 354 pass, 354 test_fail,
 58 check_fail, 6 format_fail, 2 timeout); host RAM 12.7–17.0 GB of 61; `~/.cache/jac/pg` peaked at
 4.4 GB and dropped to 57 MB after each purge; grading 3.4–22.9 s per step (mean 4.4 s), i.e.
 generation is ~98% of the step. No stop condition triggered.
