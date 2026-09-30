@@ -1,0 +1,37 @@
+# 5-step GRPO plumbing smoke test — 1 group of 8 per step, short completions, no tensorboard.
+# `reward: constant` checks the loop without jac; switch to `functions` for the real grader.
+recipe:
+  name: smoke_grpo
+  stage: grpo
+  base_model: ornith-ai/Ornith-1.5-9B
+  adapter: output/adapter/0926-v13-B/sft/adapter
+  seed: 3407
+  max_seq_length: 2048
+  load_in_4bit: true
+  text_only: true
+  report_to: []
+
+hyperparams:
+  batch_size: 8                 # completions, not prompts
+  grad_acc: 1                   # 8 completions per step = 1 group
+  lr: 5.0e-6
+  warmup_steps: 0
+  max_steps: 5
+  save_steps: 5
+  num_generations: 8
+  temperature: 0.8
+  beta: 0.0
+  max_prompt_length: 1024
+  max_completion_length: 256
+  reward: constant
+  grade_workers: 4
+  grade_mem_gb: 4
+  grade_timeout: 30
+
+mixing:
+  strategy: concat
+
+datasets:
+  - task: functions
+    name: spike-sample-20
+    split: train

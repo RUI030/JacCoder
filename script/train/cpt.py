@@ -4,14 +4,13 @@ from pathlib import Path
 
 from datasets import load_dataset
 from unsloth import (
-    FastLanguageModel,
     UnslothTrainer,
     UnslothTrainingArguments,
     is_bfloat16_supported,
 )
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from utils import finalize_out_dir, model_source, print_gpu_banner, save_adapter
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # script/: `utils` is script/utils, train helpers are train.utils
+from train.utils import finalize_out_dir, load_trainable, print_gpu_banner, save_adapter
 
 
 # Defaults (also the config schema for train.py) ============================
@@ -88,30 +87,7 @@ def run_cpt(config: dict, train_ds, eval_ds=None):
     finalize_out_dir(cfg)
     Path(cfg["out_dir"], "runs").mkdir(parents=True, exist_ok=True)
 
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name     = model_source(cfg),
-        max_seq_length = cfg["max_seq_length"],
-        dtype          = cfg["dtype"],
-        load_in_4bit   = cfg["load_in_4bit"],
-        text_only      = cfg["text_only"],
-    )
-
-    # `adapter` or `resume_from` set means from_pretrained already wrapped the
-    # model with PEFT; skip get_peft_model to avoid double-wrapping. LoRA shape
-    # is then frozen by the checkpoint; to change rank/target_modules, merge first.
-    if not (cfg["adapter"] or cfg["resume_from"]):
-        model = FastLanguageModel.get_peft_model(
-            model,
-            r                          = cfg["lora_rank"],
-            target_modules             = cfg["target_module"],
-            lora_alpha                 = cfg["lora_alpha"],
-            lora_dropout               = cfg["lora_dropout"],
-            bias                       = cfg["bias"],
-            use_gradient_checkpointing = cfg["grad_checkpt"],
-            random_state               = cfg["seed"],
-            use_rslora                 = cfg["rslora"],
-            loftq_config               = None,
-        )
+    model, tokenizer = load_trainable(cfg)
 
     eos = tokenizer.eos_token
     train_ds = train_ds.map(

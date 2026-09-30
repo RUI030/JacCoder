@@ -5,7 +5,7 @@
 
 The recipe declares stage + hyperparameters + dataset mix. This script reads
 the recipe, builds the mixed HF dataset via mixer.build_from_recipe(), and
-dispatches to run_cpt or run_sft. Each run keeps a copy of its recipe as
+dispatches to run_cpt, run_sft or run_grpo. Each run keeps a copy of its recipe as
 <out_dir>/recipe.<ext>, so --resume alone rebuilds the same run.
 
 For single-dataset runs, use cpt.py / sft.py directly with their own CLI.
@@ -17,9 +17,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from mixer import build_from_recipe   # noqa: E402
-from utils import finalize_out_dir    # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # script/: `utils` is script/utils, train helpers are train.utils
+from train.mixer import build_from_recipe   # noqa: E402
+from train.utils import finalize_out_dir    # noqa: E402
 
 
 RECIPE_SUFFIXES = (".yaml", ".yml", ".py")
@@ -76,11 +76,14 @@ def main() -> None:
     save_recipe(recipe, Path(cfg["out_dir"]))
 
     if stage == "cpt":
-        from cpt import run_cpt
+        from train.cpt import run_cpt
         run_cpt(cfg, train_ds, eval_ds)
     elif stage == "sft":
-        from sft import run_sft
+        from train.sft import run_sft
         run_sft(cfg, train_ds, eval_ds)
+    elif stage == "grpo":
+        from train.grpo import run_grpo
+        run_grpo(cfg, train_ds, eval_ds)
     else:
         raise SystemExit(f"Unknown stage in recipe: {stage!r}")
 

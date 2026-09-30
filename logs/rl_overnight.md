@@ -13,9 +13,9 @@ format rule = any prose allowed, exactly one ```` ```jac ```` block.
 - [x] P2 script/rl: task.py, harness.py (render_prompt, materialize, forbidden/test-block guard), graders/functions.py, graders/test_functions.py
 - [x] P2 prompt_template.json: rl_functions key
 - [x] P2 checks: solutions 1.0, starters <1, broken 0, test-block rejected, loop→timeout, alloc→memory_cap, child killed; 4–8 parallel; log RAM + pg size; commit
-- [ ] P3 load_trainable + chat-template check in train/utils.py; cpt/sft use it; smoke SFT max_steps=2
-- [ ] P3 train/grpo.py, rl/rewards.py (cache, pool, None on infra_error, rollouts log, purge_pg every N), mixer/train.py grpo stage, smoke_grpo.yaml
-- [ ] P3 5 steps dummy reward, 5 steps real reward; save + reload via load_model; log step time + fitting settings; commit
+- [x] P3 load_trainable + chat-template check in train/utils.py; cpt/sft use it; smoke SFT max_steps=2
+- [x] P3 train/grpo.py, rl/rewards.py (cache, pool, None on infra_error, rollouts log, purge_pg every N), mixer/train.py grpo stage, smoke_grpo.yaml
+- [x] P3 5 steps dummy reward, 5 steps real reward; save + reload via load_model; log step time + fitting settings; commit
 - [ ] P4 script/eval/rl/run_eval.py; readiness on v13-B and v13-A (pass@1/8, compile, mixed frac, grade time); pick adapter; ≤2 difficulty rounds; set grade_*; commit
 - [ ] P5 spike recipe; nohup launch + tee; monitor (reward, compile, zero-std, infra err, RAM, pg size); dev eval final vs base; reward-hacking spot-check; commit
 - [ ] P6 GSPO (if time before 07:30)
@@ -112,3 +112,76 @@ Findings / decisions:
 - Mistake during probing: a `pg_ctl` glob matched two dist versions (18.4.0, 18.6.0), the stop
   failed, and I removed `pg/main` under a live postmaster; stopped it with SIGINT and wiped.
   `purge_pg` avoids `pg_ctl` for this reason (signals the pid from `postmaster.pid`).
+
+## Phase 3: GRPO plumbing — done
+
+Built:
+- `train/utils.py`: `load_trainable(cfg)` (from_pretrained + LoRA only without adapter/resume,
+  then `restore_architectures`), `ensure_chat_template(tokenizer, cfg)`; `save_adapter` suffix
+  `-sft` / `-grpo` per stage. `cpt.py` and `sft.py` call them (no behaviour change).
+- `utils/model.py`: `restore_architectures(model)` extracted from `load_model` (second caller:
+  `load_trainable`; GRPO's `generate()` crashed on `config.architectures = None` without it).
+- `train/grpo.py`: `default_config()` (every GRPO key TRL would default is explicit),
+  `run_grpo(cfg, train_ds, eval_ds)`, single-set CLI (`--task functions --ds spike-sample-20
+  --steps N --adapter ...`).
+- `rl/rewards.py`: `make_reward_funcs(cfg)` → `functions_reward` (w=1) + `compile_rate`,
+  `format_rate`, `pass_rate`, `infra_rate` (w=0, logged as `rewards/<name>/mean`); a `Grader`
+  that grades each (task, sha1(completion)) once per step on a thread pool, writes
+  `rollouts/step_<N>.jsonl` and `rollouts/stats.jsonl` (grade_s, status counts, infra_rate,
+  host RAM, pg MB), and runs `purge_pg()` + `start_pg()` every `purge_pg_steps`.
+  `reward: constant` = plumbing smoke.
+- `mixer.py`: `stage: grpo` → `dataset/rl/<task>/<set>` via `rl.task`; GRPO keys
+  (`GRPO_KEYS`, `GRPO_MODEL_KEYS`) are only accepted under `stage: grpo`; no valid split.
+  `train.py` dispatches `grpo`. `recipe/dev/smoke_grpo.yaml` (5 steps, 8 generations,
+  `beta 0`, 256 tokens, `reward: constant`).
+
+Checks:
+- SFT smoke (`smoke_sft.yaml` copy with `max_steps: 2`): ok, loss 1.137, adapter saved.
+  **`smoke_sft.yaml` points at the archived `osp/Nitin-1k-osp`**; the working copy (scratchpad,
+  not committed) used `osp/Nitin-osp-merged`. Recipe left unchanged; needs your call.
+- GRPO constant reward, 5 steps, base `0926-v13-B/sft/adapter`: loss 0 / grad_norm 0 /
+  frac_reward_zero_std 1 (expected), 8.0 GB VRAM reserved, 116M trainable params (the SFT
+  LoRA is trainable), 105 s/step, adapter saved; saved `chat_template.jinja` is byte-identical
+  to the SFT adapter's (THINK_OFF prefix removed before save).
+- GRPO real reward, 5 steps: `rollouts/step_0..4.jsonl` + `stats.jsonl` written;
+
+  | step | loss | reward mean | reward std | compile | format | pass | zero-std |
+  |---|---|---|---|---|---|---|---|
+  | 1 | 0.23 | 0.771 | 0.427 | 0.875 | 0.875 | 0.75 | 0 |
+  | 2 | -0.020 | 0.911 | 0.131 | 1.0 | 1.0 | 0.625 | 0 |
+  | 3 | -0.033 | 0.600 | 0.283 | 1.0 | 1.0 | 0.25 | 0 |
+  | 4 | 0.029 | 0.604 | 0.333 | 0.875 | 1.0 | 0.25 | 0 |
+  | 5 | -0.038 | 0.775 | 0.345 | 0.875 | 1.0 | 0.5 | 0 |
+
+  Grading 3.2–3.5 s per group of 8 (4 workers), infra_rate 0, host RAM 14.7 GB, 89 s/step.
+- Reload: `utils/model.load_model(<smoke adapter>)` merges and generates; its dev samples
+  grade int_to_roman 0/5, second_largest 5/5, compress_ranges 5/5.
+- Fit (spike-size): 16 completions/step (batch 16 × acc 1), `max_completion_length 512`,
+  3 steps: **peak 15.4 / 16.3 GB VRAM**, 322 s/step, clipped_ratio 0 (mean length 135–188).
+  No OOM, so no downsizing was needed. Spike uses batch 8 × acc 2 (same 16-completion
+  generation batch, smaller training micro-batch → lower peak).
+
+Findings / decisions:
+- **TRL 0.24 does not ignore `None` rewards**: it maps them to NaN and `nansum`s across reward
+  functions, so with any weight-0 metric function the row becomes 0 (a model failure). The plan
+  assumed a NaN-aware mean. `functions_reward` instead gives an infra-error row the mean of the
+  valid rewards in its group (advantage 0); an all-infra group becomes all 0 (zero std).
+- **Ornith opens a `<think>` block by default** (template: thinking unless
+  `enable_thinking is false`), and TRL 0.24 renders prompts without template kwargs. `grpo.py`
+  prefixes the in-memory template with a `set enable_thinking = false` default (config key
+  `enable_thinking: false`) to match `utils/model.py` eval rendering, and restores it before save.
+  Answers the plan's open question: thinking off, SFT adapters answer in ~100–200 tokens.
+- **Shape change: `script/train/` is now a package** (`__init__.py`), and `cpt.py`, `sft.py`,
+  `train.py`, `grpo.py` put `script/` on `sys.path` and import `train.utils` / `train.mixer` /
+  `train.cpt` / `train.sft`. Reason: `script/train/utils.py` and the `script/utils/` package
+  were both importable as `utils`, so `rl.*` (which needs `utils.jac_cli`) could not be
+  imported in a training process. `python script/train/{cpt,sft,train}.py` commands are unchanged.
+- **Generation is the bottleneck, and it runs on a slow path**: the log says the fla /
+  causal-conv1d fast path for Ornith's linear-attention layers is missing ("Falling back to torch
+  implementation"). Not installed (no package changes tonight). Worth trying next.
+- lr 5e-6 (Unsloth GRPO notebooks); loss_type `dapo` (TRL 0.24 default, now explicit);
+  `scale_rewards: group`; `mask_truncated_completions: true`; `purge_pg_steps` 10 by default,
+  5 in the spike (pg grew ~600 MB per 8 samples during the smoke: 73 → 2718 MB over 5 steps).
+- Leftover run dirs (not deleted, per the rules): `output/adapter/09-29_23-34-smoke_grpo`
+  (crashed before the architectures fix), `09-29_23-35-smoke_grpo`, `09-29_23-44-smoke_grpo_real`,
+  `09-29_23-30-smoke_sft_2step`, `09-29_23-53-fit_grpo_bs16`.

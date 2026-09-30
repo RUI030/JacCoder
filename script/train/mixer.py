@@ -4,7 +4,8 @@ A recipe is YAML (.yaml/.yml) or a Python module exporting a `RECIPE` dict.
 See `recipe/README.md` for schema details.
 
 The mixer returns (stage, config, train_ds, eval_ds). It never loads models —
-that is train.py's job (via run_cpt / run_sft).
+that is train.py's job (via run_cpt / run_sft / run_grpo). A `grpo` entry is an
+RL task set (dataset/rl/<task>/<set>/) loaded through rl.task, one row per task.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from datasets import (
 )
 
 DATASET_ROOT = Path(__file__).resolve().parent.parent.parent / "dataset"
+PROMPT       = Path(__file__).resolve().parent.parent / "dataset" / "template" / "prompt_template.json"
 
 
 # Recipe I/O ================================================================
@@ -44,8 +46,8 @@ def load_recipe(path: str | Path) -> dict:
 def resolve_names(stage: str, task: str | None, names) -> list[Path]:
     """Return the list of dataset directories a single recipe entry expands to.
 
-    stage: "cpt" or "sft"
-    task:  subdir name under sft/ (ignored when stage == "cpt")
+    stage: "cpt", "sft" or "grpo"
+    task:  subdir name under sft/ or rl/ (ignored when stage == "cpt")
     names: str, list[str], "*" or None
     """
     if stage == "cpt":
@@ -54,6 +56,10 @@ def resolve_names(stage: str, task: str | None, names) -> list[Path]:
         if not task:
             raise ValueError("SFT recipe entry requires `task`")
         base = DATASET_ROOT / "sft" / task
+    elif stage == "grpo":
+        if not task:
+            raise ValueError("GRPO recipe entry requires `task`")
+        base = DATASET_ROOT / "rl" / task
     else:
         raise ValueError(f"Unknown stage: {stage}")
 
@@ -67,7 +73,7 @@ def resolve_names(stage: str, task: str | None, names) -> list[Path]:
     return [base / n for n in names]
 
 
-TRAIN_COLUMNS = ("text", "messages")  # columns the trainers consume
+TRAIN_COLUMNS = ("text", "messages", "prompt", "task_id", "task_dir", "task_type")  # columns the trainers consume
 
 
 def load_splits(ds_dir: Path, splits: list[str]) -> Dataset | None:
@@ -85,10 +91,19 @@ def load_splits(ds_dir: Path, splits: list[str]) -> Dataset | None:
     return ds.remove_columns(drop) if drop else ds
 
 
-def entry_datasets(entry: dict, stage: str, kind: str) -> list[tuple[str, Dataset, float, int]]:
+def load_rl_splits(set_dir: Path, splits: list[str], seed: int) -> Dataset:
+    """Task rows of an RL set (prompt messages + task columns), via rl.task."""
+    from dataset.pipeline import load_prompts
+    from rl.task import load_split, to_dataset
+    prompts = load_prompts(PROMPT, "system", "rl_functions")
+    return to_dataset([t for s in splits for t in load_split(set_dir, s)], prompts, seed)
+
+
+def entry_datasets(entry: dict, stage: str, kind: str, seed: int = 3407) -> list[tuple[str, Dataset, float, int]]:
     """Expand one recipe entry into (label, dataset, weight, repeat) tuples.
 
-    kind: "train" or "valid" — picks the split list.
+    kind: "train" or "valid" — picks the split list. GRPO has no valid split
+    (eval runs through eval/rl/run_eval.py), so it yields nothing for "valid".
     """
     task   = entry.get("task")
     names  = entry.get("name") or entry.get("names")
@@ -102,8 +117,10 @@ def entry_datasets(entry: dict, stage: str, kind: str) -> list[tuple[str, Datase
     repeat = int(entry.get("repeat", 1))
 
     out: list[tuple[str, Dataset, float, int]] = []
+    if stage == "grpo" and kind == "valid":
+        return out
     for ds_dir in resolve_names(stage, task, names):
-        ds = load_splits(ds_dir, splits)
+        ds = load_rl_splits(ds_dir, splits, seed) if stage == "grpo" else load_splits(ds_dir, splits)
         if ds is None or len(ds) == 0:
             continue
         label = f"{task or 'cpt'}/{ds_dir.name}"
@@ -162,6 +179,14 @@ HYPERPARAM_KEYS = ("epochs", "batch_size", "grad_acc", "optimizer",
                    "lora_rank", "lora_alpha", "lora_dropout", "target_module",
                    "rslora", "bias", "grad_checkpt", "packing",
                    "instruction_part", "response_part")
+# Allowed only under `stage: grpo` (train/grpo.py default_config), so SFT/CPT recipes stay strict.
+GRPO_MODEL_KEYS = ("enable_thinking",)
+GRPO_KEYS       = ("max_grad_norm", "num_generations", "temperature", "top_p", "top_k", "min_p",
+                   "repetition_penalty", "max_prompt_length", "max_completion_length", "beta",
+                   "num_iterations", "loss_type", "importance_sampling_level", "epsilon",
+                   "epsilon_high", "scale_rewards", "mask_truncated_completions",
+                   "shuffle_dataset", "log_completions", "reward", "grade_workers",
+                   "grade_mem_gb", "grade_timeout", "purge_pg_steps")
 
 TOP_LEVEL_KEYS = {"recipe", "hyperparams", "mixing", "datasets"}
 MIXING_KEYS = {"strategy", "stopping"}
@@ -185,8 +210,11 @@ def validate_recipe(recipe: dict) -> None:
     for section in sections:
         if section in recipe and not isinstance(recipe[section], dict):
             raise ValueError(f"`{section}` must be a mapping.")
-    reject_unknown("recipe", recipe.get("recipe", {}), MODEL_KEYS + ("name", "stage"))
-    reject_unknown("hyperparams", recipe.get("hyperparams", {}), HYPERPARAM_KEYS + ("max_seq_len",))
+    grpo = (recipe.get("recipe", {}).get("stage") or "").lower() == "grpo"
+    reject_unknown("recipe", recipe.get("recipe", {}),
+                   MODEL_KEYS + ("name", "stage") + (GRPO_MODEL_KEYS if grpo else ()))
+    reject_unknown("hyperparams", recipe.get("hyperparams", {}),
+                   HYPERPARAM_KEYS + ("max_seq_len",) + (GRPO_KEYS if grpo else ()))
     reject_unknown("mixing", recipe.get("mixing", {}), MIXING_KEYS)
 
     datasets = recipe.get("datasets", [])
@@ -203,10 +231,10 @@ def merge_config(recipe: dict) -> dict:
     r  = recipe.get("recipe", {})
     hp = recipe.get("hyperparams", {})
     cfg: dict = {}
-    for k in MODEL_KEYS:
+    for k in MODEL_KEYS + GRPO_MODEL_KEYS:
         if k in r:
             cfg[k] = r[k]
-    for k in HYPERPARAM_KEYS:
+    for k in HYPERPARAM_KEYS + GRPO_KEYS:
         if k in hp:
             cfg[k] = hp[k]
     if "max_seq_len" in hp and "max_seq_length" not in cfg:
@@ -223,8 +251,8 @@ def build_from_recipe(path: str | Path) -> tuple[str, dict, Dataset, Dataset | N
     validate_recipe(recipe)
     r = recipe.get("recipe", {})
     stage = (r.get("stage") or "").lower()
-    if stage not in ("cpt", "sft"):
-        raise ValueError(f"recipe.stage must be 'cpt' or 'sft', got: {stage!r}")
+    if stage not in ("cpt", "sft", "grpo"):
+        raise ValueError(f"recipe.stage must be 'cpt', 'sft' or 'grpo', got: {stage!r}")
 
     cfg  = merge_config(recipe)
     seed = int(cfg.get("seed", 3407))
@@ -235,9 +263,9 @@ def build_from_recipe(path: str | Path) -> tuple[str, dict, Dataset, Dataset | N
 
     train_items, valid_items = [], []
     for entry in entries:
-        train_items.extend(entry_datasets(entry, stage, "train"))
+        train_items.extend(entry_datasets(entry, stage, "train", seed))
         if cfg.get("do_eval"):
-            valid_items.extend(entry_datasets(entry, stage, "valid"))
+            valid_items.extend(entry_datasets(entry, stage, "valid", seed))
 
     mixing = recipe.get("mixing", {}) or {"strategy": "concat"}
     train_ds = mix(train_items, mixing, seed)

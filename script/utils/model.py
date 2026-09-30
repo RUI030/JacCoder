@@ -4,6 +4,22 @@ from unsloth import FastLanguageModel
 import torch
 
 
+def restore_architectures(model) -> None:
+    """Set `config.architectures` where the Unsloth 2026.8.19 text-only VLM path left it None.
+
+    `generate()` (plain or inside GRPOTrainer) iterates it and fails on None.
+    """
+    base = model.get_base_model() if hasattr(model, "get_base_model") else model
+    arch = type(base).__name__
+    seen = set()
+    for cfg in (model.config, base.config):
+        if id(cfg) in seen:
+            continue
+        seen.add(id(cfg))
+        if not getattr(cfg, "architectures", None):
+            cfg.architectures = [arch]
+
+
 def load_model(
     model_name: str,
     max_seq_length: int,
@@ -33,15 +49,7 @@ def load_model(
         kwargs["device_map"] = device_map
     model, tokenizer = FastLanguageModel.from_pretrained(**kwargs)
 
-    base = model.get_base_model() if hasattr(model, "get_base_model") else model
-    arch = type(base).__name__
-    seen = set()
-    for cfg in (model.config, base.config):
-        if id(cfg) in seen:
-            continue
-        seen.add(id(cfg))
-        if not getattr(cfg, "architectures", None):
-            cfg.architectures = [arch]
+    restore_architectures(model)
 
     # If the loaded path was a LoRA adapter, fold it into the base weights so
     # inference matches merge_lora.py output. Loading Ornith adapters via
