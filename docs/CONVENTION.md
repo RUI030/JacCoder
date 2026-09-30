@@ -5,7 +5,7 @@ Python under `script/`.
 
 ## What this project is
 
-JacCoder is a training workspace for Jac-focused language models. Three
+JacCoder is a training workspace for Jac-focused language models. Four
 domains sit under `script/`:
 
 - `dataset/` — turn raw source (`.jac` files, JSONL, GitHub repos, agent
@@ -14,6 +14,9 @@ domains sit under `script/`:
   system for multi-dataset mixes.
 - `eval/` — measure a trained adapter (gating, batched inference, drift
   probes).
+- `rl/` — the RL environment: load task sets from `dataset/rl/`, render
+  prompts, grade completions with hidden tests, and GRPO reward functions.
+  Used by both `train/grpo.py` and `eval/rl/run_eval.py`.
 
 Top-level scripts (`inference.py`, `merge_lora.py`) provide REPL and export.
 
@@ -26,7 +29,7 @@ script/
 │   ├── classifier.py     content classifier (function/graph/osp/fullstack)
 │   ├── io.py             JSONL iteration + Parquet export
 │   ├── jac_block.py      extract ```jac``` fences from LLM output
-│   ├── jac_cli.py        subprocess wrapper around `jac check/run/build/start`
+│   ├── jac_cli.py        subprocess wrapper around `jac check/run/build/start/test` (+ timeout/memory cap, postgres purge)
 │   └── model.py          Unsloth model load + generate
 ├── dataset/
 │   ├── pipeline.py       shared record-write pipeline (used by every producer)
@@ -39,12 +42,18 @@ script/
 │   │   ├── md2ast.py
 │   │   └── repo.py       repo walker + Jac scaffold extractor
 │   └── template/         prompt_template.json, ds_report.json
-├── train/
+├── rl/
+│   ├── task.py           load dataset/rl/<task>/<set> splits → HF Dataset(prompt, task_*)
+│   ├── harness.py        render prompt; completion → workspace files (format / forbidden screen)
+│   ├── rewards.py        TRL reward funcs, per-step grading cache, rollout log
+│   └── graders/          one grader per task type + plain-assert self-test
+├── train/                a package: scripts import `train.utils`, `train.mixer` (`utils` = script/utils)
 │   ├── cpt.py            run_cpt(config, ds) + single-dataset CLI
 │   ├── sft.py            run_sft(config, ds) + single-dataset CLI
+│   ├── grpo.py           run_grpo(config, ds) + single-set CLI
 │   ├── mixer.py          recipe → mixed HF Dataset (concat / interleave / sequential)
 │   ├── train.py          --recipe CLI dispatcher
-│   ├── utils.py          finalize_out_dir / model_source / print_gpu_banner / save_adapter
+│   ├── utils.py          load_trainable / ensure_chat_template / finalize_out_dir / model_source / print_gpu_banner / save_adapter
 │   └── recipe/           *.yaml / *.py recipe files + README.md
 ├── eval/
 │   ├── gate.py           pass/fail gating from generated jac
@@ -52,6 +61,7 @@ script/
 │   ├── compare/          confusion matrix / taxonomy / heatmap comparison
 │   ├── infer/            adapter + openrouter inference backends
 │   ├── probe/            loss / SVD / adapter probes
+│   ├── rl/               RL task-set eval (pass@k, readiness)
 │   └── Nitin-test/       vendored hidden-test harness (see PROVENANCE.md)
 ├── spike/                experimental scripts (own README + spike_utils.py)
 ├── inference.py          REPL chat
@@ -138,10 +148,10 @@ The `meta` block inside a record is standardized across producers:
 Python (module that defines `RECIPE = {…}`). The full schema and mixing
 strategies are documented in `script/train/recipe/README.md`.
 
-Under `train/`, `cpt.py` and `sft.py` expose two entry points:
+Under `train/`, `cpt.py`, `sft.py` and `grpo.py` expose two entry points:
 
 - `default_config()` — returns the flat config dict with all defaults
-- `run_cpt(config, train_ds, eval_ds=None)` / `run_sft(...)` — runs one
+- `run_cpt(config, train_ds, eval_ds=None)` / `run_sft(...)` / `run_grpo(...)` — runs one
   training loop over given HF Dataset objects
 
 Their `if __name__ == "__main__":` block builds a config from CLI flags and
@@ -232,7 +242,8 @@ dataset/
 │   ├── markdown/                 # markdown corpora
 │   ├── diff/, session/           # git diffs / session logs
 ├── cpt/<DS_NAME>/                # CPT output (train.jsonl only)
-└── sft/<TASK_TYPE>/<DS_NAME>/    # SFT output (train.jsonl + valid.jsonl)
+├── sft/<TASK_TYPE>/<DS_NAME>/    # SFT output (train.jsonl + valid.jsonl)
+└── rl/<TASK_TYPE>/<SET_NAME>/    # RL tasks: tasks/<id>/ (model-visible), tests/<id>/ (grader-only), splits/*.txt
 ```
 
 `raw/` is gitignored. The `train.jsonl` / `valid.jsonl` under `cpt/` and

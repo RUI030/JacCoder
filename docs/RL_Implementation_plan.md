@@ -2,6 +2,16 @@
 
 > **Scope:** How to turn [RL.md](RL.md) into code in this repo. This plan starts with a spike on single-function tasks (the **Backend** design in RL.md), stored as `dataset/rl/functions/spike-sample-20/`, and makes sure Multifile, Tool use and Fullstack can be added later without restructuring. The design follows the Unsloth reference notebooks ([gpt-oss GRPO](reference/unsloth_notebook/gpt_oss_(20b)_grpo.py), [Qwen3 GRPO](reference/unsloth_notebook/qwen3_(4b)_grpo.py)) and TRL 0.24's `GRPOTrainer`, adapted to [CONVENTION.md](CONVENTION.md).
 
+> **Built (2026-09-30 spike), divergences from this plan.** Details and numbers: `logs/rl_overnight.md`.
+> - **`None` rewards are not ignored by TRL 0.24.** It maps them to NaN and `nansum`s across reward functions, so with the weight-0 metric functions a `None` becomes 0. `infra_error` rows get the mean of their group's valid rewards instead (advantage 0). See [rewards.py](#scriptrlrewardspy).
+> - **`harness.materialize(completion, meta)` returns `({target: source}, reason)`** instead of writing into a workdir; the grader owns the workspace (`jac_cli.jac_workspace`). `grade_completion` / `grade_many` live in `rl/graders/__init__.py`, shared by rewards and eval.
+> - **Postgres growth is per test block, not per workspace:** `jac test` creates about one database per test block on every run (~50–80 MB per graded sample incl. WAL). `purge_pg()` runs every `purge_pg_steps` (5 in the spike), and `start_pg()` restarts the postmaster outside any per-test cgroup scope.
+> - **Thinking off:** Ornith's template opens `<think>` by default and TRL renders prompts without template kwargs, so `grpo.py` defaults `enable_thinking` to false in the in-memory template (matches eval). Answers the open question below.
+> - **`script/train/` became a package** (`train.utils`, `train.mixer`), because `script/train/utils.py` shadowed the `script/utils/` package that `rl/` imports.
+> - `load_trainable` also calls `utils/model.restore_architectures` (GRPO's `generate()` fails on the Unsloth text-only VLM `architectures = None` bug).
+> - Phases ran in the order dataset → grader → plumbing → readiness → spike. `smoke_grpo.yaml` uses 8 generations × 1 group (not 2 × 2) and the whole train split.
+> - Extra GRPO keys: `enable_thinking`, `max_grad_norm`, `reward` (`functions` | `constant`), `purge_pg_steps`; `meta.json` adds `difficulty` and `forbidden`.
+
 ## What we take from the Unsloth notebook
 
 | Notebook | Here |
@@ -147,7 +157,7 @@ These are general `jac` helpers, not RL-specific, so they go here instead of in 
   - `functions_reward`: weight 1. Implements RL.md's `0 | passed/total`.
   - `compile_rate`, `format_rate`: weight 0. TRL still logs each reward function's mean and std, which gives the spike metrics for free.
 - **Grading cache:** TRL calls each reward function separately on the same batch. The first call grades every `(task_id, sha(completion))` with a `ThreadPoolExecutor` (grading is subprocess-bound); later calls read the cache.
-- **`infra_error` / `timeout`:** these return `None`. TRL 0.24 ignores `None` rewards through a NaN-aware mean, so a grading crash doesn't count as a model failure. Check this in Phase 1.
+- **`infra_error` / `timeout`:** these return `None`. TRL 0.24 ignores `None` rewards through a NaN-aware mean, so a grading crash doesn't count as a model failure. Check this in Phase 1. *(Checked: it does not. `nansum` across reward functions turns `None` into 0, so `infra_error` gets the group mean; `timeout` scores 0.)*
 - **Rollout log:** writes `rollouts/step_<N>.jsonl` with the prompt id, completion, status, reward, `grade_ms` and group index. This covers RL.md's "reward variation within groups" and "grading time", and makes reward hacking visible.
 
 ### `script/train/grpo.py`
@@ -259,5 +269,5 @@ Each phase ends with a check before the next one starts.
 
 ## Open questions
 
-- **Ornith thinking mode:** does its native template emit a reasoning block before the answer? If so, `max_completion_length` has to leave room for it, and the format rule has to allow text outside the single ```` ```jac ```` block.
+- **Ornith thinking mode** *(answered: yes by default; the spike trains with thinking off, like eval)*: does its native template emit a reasoning block before the answer? If so, `max_completion_length` has to leave room for it, and the format rule has to allow text outside the single ```` ```jac ```` block.
 - **Where tasks come from after the spike:** jac-data-gen masters that ship tests? They would need deduping against Nitin-test first.

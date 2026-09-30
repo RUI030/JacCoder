@@ -3,7 +3,8 @@
 A recipe is one file that describes a training run end-to-end: base model,
 adapter, hyperparameters, and how to mix multiple datasets into the training
 stream. `train.py` reads the recipe, `mixer.py` builds the mixed HF dataset,
-and `run_cpt` / `run_sft` in `cpt.py` / `sft.py` do the training.
+and `run_cpt` / `run_sft` / `run_grpo` in `cpt.py` / `sft.py` / `grpo.py` do
+the training.
 
 For a single-dataset run, keep using `cpt.py` / `sft.py` with their own CLI
 flags. Recipes exist for the multi-dataset case.
@@ -103,7 +104,7 @@ new one.
 ```yaml
 recipe:
   name: base_sft_v1              # used to name output/adapter/<timestamp>-<name>/
-  stage: sft                     # cpt | sft
+  stage: sft                     # cpt | sft | grpo
   base_model: ornith-ai/Ornith-1.5-9B
   adapter: ""                    # optional continue-from adapter path
   hf_repo: ""                    # optional exact repo id; default: <hf_org>/JacLLM-<model-name>
@@ -120,14 +121,14 @@ hyperparams:
   lr: 2.0e-4
   lora_rank: 64
   lora_alpha: 16
-  # ...any other field in default_config() of cpt.py / sft.py
+  # ...any other field in default_config() of cpt.py / sft.py / grpo.py
 
 mixing:
   strategy: interleave           # concat | interleave
   stopping: all_exhausted        # interleave only: first_exhausted | all_exhausted
 
 datasets:
-  - task: py2jac                 # required for sft; ignored for cpt
+  - task: py2jac                 # required for sft and grpo; ignored for cpt
     name: opus-synth-v2          # str | list | "*" (or omit) for all names under task
     split: train                 # default "train"; can also be a list
     weight: 0.20                 # interleave only
@@ -154,6 +155,61 @@ Given `stage=cpt`:
 |---|---|
 | `name=Nitin-9k-py2jac-idiom` | `dataset/cpt/Nitin-9k-py2jac-idiom/train.jsonl` |
 | no `name` | every subdir under `dataset/cpt/` |
+
+Given `stage=grpo`, an entry is an RL task set, loaded by `rl/task.py` as one
+row per task (`prompt`, `task_id`, `task_dir`, `task_type`):
+
+| entry | resolves to |
+|---|---|
+| `task=functions, name=spike-sample-20, split=train` | tasks listed in `dataset/rl/functions/spike-sample-20/splits/train.txt` |
+
+GRPO has no valid split; evaluate with `script/eval/rl/run_eval.py`.
+
+## GRPO stage
+
+`stage: grpo` accepts the keys below on top of the shared ones (they are
+rejected under `cpt`/`sft`). Defaults are in `grpo.py:default_config()`; every
+key TRL would otherwise default is set explicitly.
+
+```yaml
+recipe:
+  stage: grpo
+  adapter: output/adapter/0926-v13-A/sft/adapter   # start from an SFT adapter
+  enable_thinking: false         # Ornith's template opens <think> unless this is false
+
+hyperparams:
+  batch_size: 8                  # completions per micro-batch, NOT prompts
+  grad_acc: 2                    # batch_size × grad_acc completions per update, a multiple of num_generations
+  lr: 5.0e-6
+  max_grad_norm: 1.0
+  num_generations: 8             # group size
+  temperature: 0.8
+  top_p: 1.0                     # also top_k, min_p, repetition_penalty
+  max_prompt_length: 1024
+  max_completion_length: 512
+  beta: 0.0                      # with PEFT the KL reference is the adapter-off base, not the SFT policy
+  num_iterations: 1
+  loss_type: dapo                # grpo | dapo | bnpo | dr_grpo
+  importance_sampling_level: token   # sequence = GSPO
+  epsilon: 0.2                   # epsilon_high: null
+  scale_rewards: group           # group | batch | none
+  mask_truncated_completions: true
+  shuffle_dataset: true
+  log_completions: false
+  reward: functions              # functions | constant (plumbing smoke test)
+  grade_workers: 8               # grade_workers × grade_mem_gb must fit in host RAM next to training
+  grade_mem_gb: 3                # per-test cgroup (or RSS watchdog) cap
+  grade_timeout: 20              # seconds per jac check / jac test
+  purge_pg_steps: 5              # wipe jac's embedded postgres every N steps (jac test leaves ~50 MB per sample)
+```
+
+Groups per update = `batch_size × grad_acc / num_generations`. A run writes
+`rollouts/step_<N>.jsonl` (completion, status, reward, grading ms) and
+`rollouts/stats.jsonl` (grading time, status counts, infra-error rate, host
+RAM, postgres size) next to its checkpoints. TensorBoard gets
+`rewards/functions_reward/*` plus weight-0 metrics `rewards/{compile,format,pass,infra}_rate/mean`,
+and TRL's `frac_reward_zero_std`. Run `python script/rl/graders/test_functions.py`
+before a run. `recipe/dev/smoke_grpo.yaml` is the 5-step plumbing test.
 
 ## Mixing strategies
 
