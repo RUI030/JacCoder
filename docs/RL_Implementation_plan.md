@@ -18,7 +18,7 @@
 
 ## Reuse first
 
-New code is limited to what RL actually adds: loading tasks, materializing a completion, grading with tests, and reward functions. Everything else comes from existing modules. Vendored code under `script/eval/Nitin-test/` is **not** imported or copied; where RL needs the same idea (memory cap, pass@k), it is written in the repo's own modules.
+New code is limited to what RL actually adds: loading tasks, materializing a completion, grading with tests, and reward functions. Everything else comes from existing modules. **`script/eval/Nitin-test/` is reference only**, the whole directory: RL code does not import it, copy it, or modify it. Where RL needs the same idea (memory cap, postgres cleanup, pass@k), it is written in the repo's own modules, and Nitin-test stays exactly as it is.
 
 | Need | Reuse | Change needed |
 |---|---|---|
@@ -158,6 +158,7 @@ This file mirrors `sft.py`:
 - **`default_config()`:**
   - **Shared keys:** the same model, output and LoRA keys as `sft.py`.
   - **GRPO keys:** `num_generations: 8`, `temperature: 0.8`, `top_p: 1.0`, `max_prompt_length`, `max_completion_length`, `beta: 0.0`, `loss_type`, `importance_sampling_level: "token"`, `epsilon`, `scale_rewards`, `mask_truncated_completions: True`, `grade_timeout`, `grade_workers`, `log_completions`.
+  - **Groups per step:** TRL 0.24 has no separate "number of groups" key. `num_generations` is the group size (8). Each optimizer step generates `batch_size × grad_acc` completions (`generation_batch_size`, which must be divisible by `num_generations`), so groups per step = `batch_size × grad_acc / 8`. For example, `batch_size: 2, grad_acc: 8` gives 16 completions, which is 2 prompts × 8. `batch_size` counts completions, not prompts.
   - **Explicit defaults:** set every key TRL would otherwise default. That way a TRL upgrade can't silently change a run.
 - **`run_grpo(config, train_ds, eval_ds=None)`:**
   1. `load_trainable(cfg)` and the shared chat-template check from `train/utils.py`.
@@ -177,7 +178,7 @@ This file mirrors `sft.py`:
 
 - CLI in the style of `Nitin-test/run_eval.py`: `--adapter`, `--set`, `--split dev|test`, `--n-samples`, `--temperature`, `--k`, `--limit`, `--workers`.
 - The flow is the same as the other eval scripts: generate with `utils/model.load_model` + `generate_batched` into `predictions.jsonl` (the `eval/infer/` schema plus `sample_id`), then grade with `rl.harness` and `rl.graders`. Training and eval use the same grading path.
-- `summary.json` holds pass@k (the unbiased estimator, a few lines in this script, not imported from the vendored grader), compile rate, and **per-task pass counts out of n**.
+- `summary.json` holds pass@k (the unbiased estimator, a few lines in this script, not imported from Nitin-test), compile rate, and **per-task pass counts out of n**.
 - **RL-readiness mode:** `--split train --n-samples 8 --temperature 0.8`. It reports the fraction of tasks with `0 < passes < 8`. Only those tasks give a GRPO signal (RL.md: an all-fail group has no signal). An optional `--emit-split` writes those task ids to `splits/train_active.txt`.
 
 ## Test setup (jac 0.36.1)
@@ -205,7 +206,7 @@ Checked with the jac-testing guide, `jac guide reference/testing` and a local ru
 
 ## Runaway protection
 
-A policy mid-training *will* write infinite loops and unbounded allocations, and the grader runs up to `batch × num_generations` of them at once, on the same host as the training process. These are the lessons already recorded in [CLOUD_GPU.md](CLOUD_GPU.md) ("Nitin function tests on a container") and [Nitin-test/PROVENANCE.md](../script/eval/Nitin-test/PROVENANCE.md) (memory-cap patch). They are reimplemented in `utils/jac_cli.py` and not imported from the vendored grader.
+A policy mid-training *will* write infinite loops and unbounded allocations, and the grader runs up to `batch × num_generations` of them at once, on the same host as the training process. These are the lessons already recorded in [CLOUD_GPU.md](CLOUD_GPU.md) ("Nitin function tests on a container") and [Nitin-test/PROVENANCE.md](../script/eval/Nitin-test/PROVENANCE.md) (memory-cap patch). They are reimplemented in `utils/jac_cli.py`. Nitin-test is only a reference and is left unchanged.
 
 | Hazard | Recorded fix | In `jac_cli` |
 |---|---|---|
@@ -213,7 +214,7 @@ A policy mid-training *will* write infinite loops and unbounded allocations, and
 | Runaway allocation | Per-test cgroup via `systemd-run --user --scope` (`MemoryMax`, `MemorySwapMax=0`, `OOMPolicy=kill`) when a one-time probe succeeds. Otherwise an RSS watchdog: sum the group's RSS from `/proc` every 0.5 s and SIGKILL it when over the cap | Same two paths behind a `mem_limit_bytes` argument. The result is labelled `memory_cap` |
 | `RLIMIT_AS` as the cap | **Rejected:** jac reserves enough virtual memory that a 12 GB cap fails `start_new_thread` on correct solutions | Not used |
 | xdist fan-out | `-n auto` gave 128 workers, about 30 GB and 40 s for one correct sample. The embedded postgres also caps clients at 64 (`too many clients already`) | `JAC_TEST_JOBS=0` (see [Test setup](#test-setup-jac-0361)). `too many clients` is treated as `infra_error` |
-| Embedded postgres | Daemonizes out of the process group, so the cap doesn't see it. Its data dir once grew to 1.1 TB | `jac_cli.purge_pg()`, rewritten from the idea in `grade_stream.py` (`pg_ctl stop -m fast` + wipe `~/.cache/jac/pg/main`). `rl/rewards.py` calls it every N steps and at the end of the run |
+| Embedded postgres | Daemonizes out of the process group, so the cap doesn't see it. Its data dir once grew to 1.1 TB | `jac_cli.purge_pg()`, our own version of the approach in `grade_stream.py` (`pg_ctl stop -m fast` + wipe `~/.cache/jac/pg/main`). `rl/rewards.py` calls it every N steps and at the end of the run |
 | Root on containers | postgres `initdb` refuses root, so every test errors | Run as `jacgrader` per CLOUD_GPU.md. The grader self-test fails loudly if every sample is `infra_error` |
 | `/dev/shm` | Mounted `noexec`, so `initdb` gets `Permission denied` | Keep the workspace temp dirs and `~/.cache/jac` off `/dev/shm` |
 
@@ -258,6 +259,5 @@ Each phase ends with a check before the next one starts.
 
 ## Open questions
 
-- **"Attempt: 16" in RL.md:** this plan reads it as **eval pass@16** (`run_eval.py --n-samples 16`) and keeps the training group size at 8.
 - **Ornith thinking mode:** does its native template emit a reasoning block before the answer? If so, `max_completion_length` has to leave room for it, and the format rule has to allow text outside the single ```` ```jac ```` block.
 - **Where tasks come from after the spike:** jac-data-gen masters that ship tests? They would need deduping against Nitin-test first.

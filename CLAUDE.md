@@ -8,6 +8,8 @@ JacCoder is a training workspace for LoRA-tuning LLMs (`ornith-ai/Ornith-1.5-9B`
 
 `docs/CONVENTION.md` is the authoritative style and layout guide for all Python under `script/`. Read it before adding or restructuring code.
 
+At the start of a task, grep `docs/` and the READMEs and `PROVENANCE.md` under `script/` for the task's keywords, and read only the matching sections, not whole files. Past pitfalls and their fixes are recorded there, for example the grader memory cap and timeout in `docs/CLOUD_GPU.md` and `script/eval/Nitin-test/PROVENANCE.md`, and staged resume in `script/train/recipe/README.md`. Reuse existing code in `script/utils/`, `train/utils.py` and `dataset/pipeline.py`, and add or extend a helper there when a second caller needs it. New code (e.g. RL) treats `script/eval/Nitin-test/` as reference only: don't import it, copy it or modify it.
+
 ## Environment
 
 ```bash
