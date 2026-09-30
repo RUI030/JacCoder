@@ -29,7 +29,7 @@ TEMPERATURE     = 0.8              # same sampling as GRPO rollouts
 TOP_P           = 1.0
 REPETITION_PENALTY = 1.0
 MAX_NEW_TOKENS  = 768
-GEN_BATCH       = 16               # sequences per generate call
+GEN_BATCH       = 32               # sequences per generate call
 K               = [1, 8]
 LIMIT           = 0                # 0 => all tasks in the split
 WORKERS         = 8

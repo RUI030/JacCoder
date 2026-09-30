@@ -16,7 +16,7 @@ format rule = any prose allowed, exactly one ```` ```jac ```` block.
 - [x] P3 load_trainable + chat-template check in train/utils.py; cpt/sft use it; smoke SFT max_steps=2
 - [x] P3 train/grpo.py, rl/rewards.py (cache, pool, None on infra_error, rollouts log, purge_pg every N), mixer/train.py grpo stage, smoke_grpo.yaml
 - [x] P3 5 steps dummy reward, 5 steps real reward; save + reload via load_model; log step time + fitting settings; commit
-- [ ] P4 script/eval/rl/run_eval.py; readiness on v13-B and v13-A (pass@1/8, compile, mixed frac, grade time); pick adapter; ≤2 difficulty rounds; set grade_*; commit
+- [x] P4 script/eval/rl/run_eval.py; readiness on v13-B and v13-A (pass@1/8, compile, mixed frac, grade time); pick adapter; ≤2 difficulty rounds; set grade_*; commit
 - [ ] P5 spike recipe; nohup launch + tee; monitor (reward, compile, zero-std, infra err, RAM, pg size); dev eval final vs base; reward-hacking spot-check; commit
 - [ ] P6 GSPO (if time before 07:30)
 - [ ] P7 docs: CONVENTION, CLAUDE.md, recipe README, eval README, plan divergences; summary at top of this log; commit
@@ -185,3 +185,44 @@ Findings / decisions:
 - Leftover run dirs (not deleted, per the rules): `output/adapter/09-29_23-34-smoke_grpo`
   (crashed before the architectures fix), `09-29_23-35-smoke_grpo`, `09-29_23-44-smoke_grpo_real`,
   `09-29_23-30-smoke_sft_2step`, `09-29_23-53-fit_grpo_bs16`.
+
+## Phase 4: readiness — done
+
+Built `script/eval/rl/run_eval.py`: loads tasks with `rl.task`, renders the same prompts as
+training (same seed), samples n per task with `utils/model.load_model` + `generate_batched`
+(32 sequences per call), writes `predictions.jsonl` (eval/infer schema + `sample_id`), grades
+each task's n samples as one `grade_many` call (= one GRPO group, timed), writes
+`results.jsonl` + `summary.json` (unbiased pass@k, compile/format rate, mean reward, per-task
+pass counts, `mixed_pass_frac` = 0 < passes < n, `reward_varies_frac` = partial credit
+differs within the group, grading s/group). `--emit-split` writes `splits/<split>_active.txt`.
+Launcher: `script/train/recipe/0930-grpo-functions-spike/readiness.sh`, log `logs/0930-rl-readiness.log`.
+
+Train split, n=8, T=0.8, top_p 1.0, 512 new tokens, 8 grade workers, 3 GB cap, 30 s timeout:
+
+| adapter | pass@1 | pass@8 | compile | mean reward | mixed (0<pass<8) | reward varies | grade s/group mean / max | gen s (112 samples) |
+|---|---|---|---|---|---|---|---|---|
+| 0926-v13-A/sft | **0.375** | 0.857 | 0.902 | 0.665 | 12/14 (0.857) | **14/14** | 2.0 / 2.2 | 66 |
+| 0926-v13-B/sft | 0.304 | 0.857 | 0.955 | 0.652 | 12/14 (0.857) | 13/14 | 4.7 / 31.1 | 67 |
+
+Per task (passes/8), A: rle_encode 5, valid_ipv4 7, word_frequency 4, dotted_keys 3, two_sum 6,
+roman_to_int 3, merge_intervals 4, caesar_shift 4, group_anagrams 1, balanced_brackets 0,
+binary_search 1, count_islands 1, rotate_matrix 0, eval_rpn 3.
+B: 7, 3, 6, 2, 4, 1, 2, 4, 1, 1, 0, 1, 0, 2. B had one `timeout` and one `memory_cap` sample.
+
+Decisions:
+- **Adapter: 0926-v13-A.** Tied on mixed pass counts (12/14); A has more tasks with varying
+  reward (14/14), which is what gives GRPO advantages, and a higher pass@1.
+- No difficulty round needed (12 ≥ 5 mixed). rotate_matrix is 0/8 for both but gets partial
+  credit (reward varies), so it still gives signal.
+- Grading: `grade_workers 8`, `grade_mem_gb 3` (8 × 3 = 24 GB), `grade_timeout 20`
+  (correct solutions ≤ 2.2 s; the only slow group was B's timeout sample).
+- Eval samples with top_p 1.0 and repetition_penalty 1.0 (the GRPO rollout settings), not the
+  0.9 / 1.05 that `eval/infer/adapter.py` uses. `load_model` merges the LoRA into the 4-bit base
+  for eval while training generates with it unmerged; small numeric difference.
+
+Generation-speed probe (failed, reverted): `load_model` eval generates 112 samples in ~66 s,
+but GRPO rollouts take ~300 s for 16. I tried a `GRPOTrainer` subclass that switches to
+`FastLanguageModel.for_inference` around `_generate_single_turn` (hypothesis: training mode +
+gradient checkpointing disables the KV cache). The first step was still unfinished after
+10 min (slower), so it was killed and the change reverted. Root cause of the slow rollouts is
+still open (candidates: unmerged-LoRA generation path, the missing fla/causal-conv1d kernels).

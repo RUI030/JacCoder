@@ -1,0 +1,45 @@
+# GRPO spike on dataset/rl/functions/spike-sample-20 (train split, 14 tasks), from the v13 SFT adapter
+# picked by the readiness eval (logs/rl_overnight.md, Phase 4). Group size 8, 2 groups per update.
+# max_steps is time-boxed to finish overnight (~320 s/step on the 5080, generation-bound).
+recipe:
+  name: grpo-functions-spike
+  stage: grpo
+  base_model: ornith-ai/Ornith-1.5-9B
+  adapter: output/adapter/0926-v13-A/sft/adapter
+  out_dir: output/adapter/0930-grpo-functions-spike/grpo
+  seed: 3407
+  max_seq_length: 2048
+  load_in_4bit: true
+  text_only: true
+  enable_thinking: false
+
+hyperparams:
+  batch_size: 8                 # completions per micro-batch, not prompts
+  grad_acc: 2                   # 16 completions per update = 2 groups of 8
+  lr: 5.0e-6
+  warmup_steps: 3
+  max_steps: 50                 # ~330 s/step → ~4.6 h, time-boxed to end before 06:00
+  save_steps: 25
+  num_generations: 8
+  temperature: 0.8
+  top_p: 1.0
+  beta: 0.0                     # PEFT reference = adapter-off base, not the SFT policy
+  loss_type: dapo
+  importance_sampling_level: token
+  scale_rewards: group
+  mask_truncated_completions: true
+  max_prompt_length: 1024
+  max_completion_length: 512
+  reward: functions
+  grade_workers: 8
+  grade_mem_gb: 3                 # 8 × 3 GB = 24 GB cap for graders
+  grade_timeout: 20              # correct solutions grade in ≤ 2 s
+  purge_pg_steps: 5
+
+mixing:
+  strategy: concat
+
+datasets:
+  - task: functions
+    name: spike-sample-20
+    split: train
