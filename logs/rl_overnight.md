@@ -372,3 +372,18 @@ log `logs/1002-v13A-grpo-nitin-test.log`, 53 min. 972 problems, greedy:
 
 Flips: 14 pass only with GRPO, 8 only with SFT (exact McNemar p = 0.29). No regression, no significant gain.
 Within-group answer diversity in rollouts stayed high (distinct code per group of 8: 0.99 at steps 1–10, 0.94–0.96 at 31–50).
+
+## Follow-up (10-02): expected / actual per hidden test
+
+- All 109 tests in `spike-sample-20/tests/*/tests.jac` now read `want = ...; got = ...; assert got == want,
+  f"expected={want!r} actual={got!r}";` (`is` for the `None` cases). Re-validated: 20/20 solutions pass all tests,
+  20/20 starters fail ≥1.
+- `utils/jac_cli.failure_messages(stdout)`: {test name: first `E   ` line of its failure section}.
+- `rl/graders/functions.py`: graded rows get `per_test: [{name, passed}]`; failed asserts add `expected` / `actual`
+  (reprs), crashes add `error` (e.g. `IndexError: ...`). Flows into `results.jsonl` and GRPO rollouts.
+- `eval/rl/run_eval.py --regrade <run dir>`: re-grades `predictions.jsonl`, keeps the old file as
+  `results.prev.jsonl`, keeps the run's generation settings in `summary.json` and adds `regraded`.
+- Self-test: new `test_per_test_expected_actual`; all 8 PASS. The self-test now purges jac's postgres on exit.
+- Re-graded the three GRPO runs (final train, final dev, checkpoint-25 dev): 160/160 samples have the same status
+  and pass count as before. GRPO train: 93 failed tests with expected/actual, 29 with an error line.
+  The SFT baseline runs were not re-graded.

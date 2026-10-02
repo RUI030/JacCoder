@@ -37,6 +37,7 @@ script/eval/
 | Check LoRA rank utilization | `python script/eval/probe/svd_energy.py --adapter <adapter_dir>` |
 | CPT loss per checkpoint | `python script/eval/probe/cpt_loss.py --run <cpt-run> --ds <ds>` |
 | RL task set (hidden tests), pass@k | `python script/eval/rl/run_eval.py --adapter <path> --split dev --n-samples 8 --temperature 0.8` |
+| RL: re-grade saved predictions after a grader/test change (no GPU) | `python script/eval/rl/run_eval.py --regrade output/eval/rl/<task>/<set>/<run>` (old results kept as `results.prev.jsonl`) |
 | RL readiness: which train tasks give GRPO signal | `python script/eval/rl/run_eval.py --adapter <sft adapter> --split train --n-samples 8 --temperature 0.8 [--emit-split]` |
 
 ## Adding a new eval
@@ -53,4 +54,4 @@ script/eval/
 
 All eval output lands under `output/eval/<task>/<ds>/<tag>_<stamp>/` where `<tag>` is the adapter parent dir name (or model slug for OpenRouter). Same shape regardless of backend → any `compare/*` script works cross-backend.
 
-RL eval lands under `output/eval/rl/<task>/<set>/<tag>_<split>_<stamp>/` (`predictions.jsonl` with `sample_id`, `results.jsonl`, `summary.json`); `<tag>` is `<run>-<stage>` for `output/adapter/<run>/<stage>/adapter`. It grades with the same `rl.graders` path as GRPO rewards.
+RL eval lands under `output/eval/rl/<task>/<set>/<tag>_<split>_<stamp>/` (`predictions.jsonl` with `sample_id`, `results.jsonl` with `per_test: [{name, passed, expected?, actual?, error?}]`, `summary.json`); `<tag>` is `<run>-<stage>` for `output/adapter/<run>/<stage>/adapter`. It grades with the same `rl.graders` path as GRPO rewards.

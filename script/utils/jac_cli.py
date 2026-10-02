@@ -13,6 +13,7 @@ RSS_POLL        = 0.5                                   # seconds between RSS-wa
 PG_DIR          = Path(os.environ.get("JAC_CACHE_HOME", "~/.cache/jac")).expanduser() / "pg" / "main"
 SERVER_TOML     = '[build]\ndefault_codespace = "server"\n'   # plain functions otherwise lower to native (wrong results in 0.36.1)
 TEST_LINE       = re.compile(r"^[^\s:]+\.jac::(.+?)\s+(PASSED|FAILED|ERROR)\b", re.M)
+FAIL_SECTION    = re.compile(r"^_{3,} (.+?) _{3,}$")             # pytest failure-section header
 INFRA_ERROR     = re.compile(
     r"embedded postgres|postgres not ready|could not connect to (?:the )?database|"
     r"connection to server.*failed|initdb|database system is starting up|"
@@ -195,6 +196,24 @@ def test(
     res = execute(["test", str(path), "-v"], timeout, cwd,
                   env={"JAC_TEST_JOBS": "0"}, mem_limit_bytes=mem_limit_bytes)
     return res, {name: verdict == "PASSED" for name, verdict in TEST_LINE.findall(res.stdout)}
+
+
+def failure_messages(stdout: str) -> dict[str, str]:
+    """{test name: first `E   ` line of its failure section} from `jac test -v` output.
+
+    e.g. "AssertionError: expected=1 actual=3" when the test's assert carries a
+    message, or "IndexError: list index out of range" when the code crashed.
+    """
+    out, name = {}, None
+    for line in stdout.splitlines():
+        m = FAIL_SECTION.match(line)
+        if m:
+            name = m.group(1)
+        elif name and line.startswith("E ") and name not in out:
+            out[name] = line[1:].strip()
+        elif line.startswith("=") and "short test summary" in line:
+            break
+    return out
 
 
 def pg_size_bytes() -> int:

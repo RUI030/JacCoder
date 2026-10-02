@@ -98,6 +98,19 @@ def test_only_hidden_names_count():
     assert r["passed"] == r["total"] - 1, r
 
 
+def test_per_test_expected_actual():
+    # The starter returns "" for every input: failed asserts report what was expected and what came back.
+    r = grade_file((TASK_DIR / "starter.jac").read_text())
+    rows = {t["name"]: t for t in r["per_test"]}
+    assert len(rows) == r["total"] and sum(t["passed"] is True for t in rows.values()) == r["passed"], r
+    assert rows["no repeats"] == {"name": "no repeats", "passed": False, "expected": "'1a1b1c'", "actual": "''"}, rows
+    assert rows["empty string"] == {"name": "empty string", "passed": True}, rows
+    # A crash carries the error line instead.
+    crash = grade_file('def rle_encode(s: str) -> str {\n    return s[100];\n}\n')
+    errs = [t for t in crash["per_test"] if not t["passed"]]
+    assert errs and all("IndexError" in t.get("error", "") for t in errs), crash["per_test"]
+
+
 def peak_ram_during(fn) -> tuple[object, float]:
     """Run fn() while sampling host used RAM (MemTotal - MemAvailable); return (result, peak GB)."""
     peak, done = [0.0], threading.Event()
@@ -167,5 +180,6 @@ if __name__ == "__main__":
         except AssertionError as exc:
             failed += 1
             print(f"FAIL {fn.__name__}: {exc}")
-    print(f"pg dir after run: {jac_cli.pg_size_bytes() / 1e6:.0f} MB")
+    print(f"pg dir after run: {jac_cli.pg_size_bytes() / 1e6:.0f} MB (purged on exit)")
+    jac_cli.purge_pg()                               # every jac test leaves databases behind
     sys.exit(1 if failed else 0)

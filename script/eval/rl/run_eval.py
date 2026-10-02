@@ -2,6 +2,7 @@
 
     python script/eval/rl/run_eval.py --adapter output/adapter/<run>/adapter --split dev
     python script/eval/rl/run_eval.py --adapter <sft adapter> --split train --n-samples 8 --temperature 0.8   # RL readiness
+    python script/eval/rl/run_eval.py --regrade output/eval/rl/<task>/<set>/<run>    # re-grade saved predictions, no GPU
 """
 import argparse, json, sys, time
 from datetime import datetime
@@ -36,6 +37,7 @@ WORKERS         = 8
 GRADE_TIMEOUT   = 30
 GRADE_MEM_GB    = 3
 EMIT_SPLIT      = False            # write splits/<split>_active.txt (tasks with 0 < passes < n)
+REGRADE         = ""               # an existing run dir: grade its predictions.jsonl again (grader or tests changed)
 SEED            = 3407
 
 # CLI overrides ============================================
@@ -52,6 +54,7 @@ cli.add_argument("--k", help="comma list, e.g. 1,8")
 cli.add_argument("--limit", type=int)
 cli.add_argument("--workers", type=int)
 cli.add_argument("--emit-split", dest="emit", action="store_true")
+cli.add_argument("--regrade", help="existing run dir to re-grade from its predictions.jsonl")
 args, _ = cli.parse_known_args()
 if args.task:                    TASK           = args.task
 if args.set_name:                SET_NAME       = args.set_name
@@ -65,6 +68,7 @@ if args.k:                       K              = [int(k) for k in args.k.split(
 if args.limit is not None:       LIMIT          = args.limit
 if args.workers:                 WORKERS        = args.workers
 if args.emit:                    EMIT_SPLIT     = True
+if args.regrade:                 REGRADE        = args.regrade
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 SET_DIR  = PROJECT_ROOT / "dataset" / "rl" / TASK / SET_NAME
@@ -147,6 +151,24 @@ def summarize(results: list[dict], group_s: dict[str, float]) -> dict:
     }
 
 
+def regrade(run_dir: Path) -> dict:
+    """Grade a run's saved predictions again; keep the old results as results.prev.jsonl.
+
+    The run's generation settings (adapter, split, n, temperature, ...) come from its old
+    summary.json; only the grading fields are recomputed.
+    """
+    preds = [json.loads(l) for l in open(run_dir / "predictions.jsonl")]
+    old = json.loads((run_dir / "summary.json").read_text())
+    (run_dir / "results.jsonl").rename(run_dir / "results.prev.jsonl")
+    results, group_s = grade(preds)
+    write_jsonl(run_dir / "results.jsonl", results)
+    keep = ("adapter", "set", "split", "n_samples", "temperature", "max_new_tokens", "generate_s")
+    summary = {**summarize(results, group_s), **{k: old[k] for k in keep if k in old},
+               "regraded": datetime.now().strftime("%m-%d_%H-%M")}
+    (run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    return summary
+
+
 def write_jsonl(path: Path, rows: list[dict]) -> None:
     with path.open("w", encoding="utf-8") as f:
         for r in rows:
@@ -154,7 +176,14 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 # Run =====================================================
-if __name__ == "__main__":
+if __name__ == "__main__" and REGRADE:
+    jac_cli.purge_pg()
+    jac_cli.start_pg()                   # postgres outside any per-test cgroup scope
+    summary = regrade(Path(REGRADE))
+    jac_cli.purge_pg()
+    print(json.dumps({k: v for k, v in summary.items() if k != "per_task"}, indent=2))
+
+elif __name__ == "__main__":
     tasks = load_split(SET_DIR, SPLIT)[: LIMIT or None]
     rows  = list(to_dataset(tasks, load_prompts(PROMPT, "system", "rl_functions"), SEED))
     OUT_DIR.mkdir(parents=True, exist_ok=True)

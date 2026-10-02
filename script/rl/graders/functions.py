@@ -8,12 +8,26 @@ from utils import jac_cli
 # Setting =================================================
 TESTS_FILE = "tests.jac"
 TEST_NAME  = re.compile(r'(?m)^\s*test\s+"([^"]+)"')
+EXPECTED   = re.compile(r"^AssertionError: expected=(.*?) actual=(.*)$")   # message format used in tests.jac
 
 
 # Functions ===============================================
 def hidden_names(tests_src: str) -> list[str]:
     """Test names declared in tests.jac; only these count, whatever else `jac test` reports."""
     return TEST_NAME.findall(tests_src)
+
+
+def per_test(names: list[str], verdicts: dict[str, bool], messages: dict[str, str]) -> list[dict]:
+    """One entry per hidden test; failed ones carry the error and, for asserts, expected / actual reprs."""
+    rows = []
+    for n in names:
+        row = {"name": n, "passed": verdicts.get(n)}
+        if not verdicts.get(n):
+            err = messages.get(n, "")
+            m = EXPECTED.match(err)
+            row.update({"expected": m.group(1), "actual": m.group(2)} if m else {"error": err})
+        rows.append(row)
+    return rows
 
 
 def grade(files: dict[str, str], tests_dir: str | Path, meta: dict, timeout: float,
@@ -23,6 +37,7 @@ def grade(files: dict[str, str], tests_dir: str | Path, meta: dict, timeout: flo
     Writes `files`, tests.jac and the server-codespace jac.toml into a temp workspace, then:
     check fails → check_fail / 0; timeout → 0; memory cap → 0; postgres or launch
     failure → infra_error / None (not the model's fault); else passed / total.
+    Graded rows also get `per_test` (name, passed, and expected / actual for failed asserts).
     """
     start = time.perf_counter()
     tests_src = (Path(tests_dir) / TESTS_FILE).read_text()
@@ -38,7 +53,8 @@ def grade(files: dict[str, str], tests_dir: str | Path, meta: dict, timeout: flo
             row["check_pass"] = True
             res, verdicts = jac_cli.test(TESTS_FILE, ws, timeout, mem_limit_bytes)
             passed = sum(verdicts.get(n, False) for n in names)
-            row.update(passed=passed, detail=(res.stdout + res.stderr)[-600:])
+            row.update(passed=passed, detail=(res.stdout + res.stderr)[-600:],
+                       per_test=per_test(names, verdicts, jac_cli.failure_messages(res.stdout)))
             if res.timed_out:
                 row.update(status="timeout")
             elif res.mem_capped:
