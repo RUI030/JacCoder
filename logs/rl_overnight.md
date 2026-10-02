@@ -358,3 +358,17 @@ print the same stdout twice (median 6 lines, ~0.4 s). Possible task: strip some 
 reward stdout matching the reference. v13-B's CPT includes this set, v13-A's doesn't; no overlap with v13-A's
 other data (origin_id or code). **Skipped by your decision:** nobody has verified the programs are correct,
 and an output-match reward would teach the model to reproduce the reference's bugs.
+
+## Follow-up (10-02): overfitting check on Nitin's suite
+
+`script/eval/Nitin-test/run_eval.py --adapter output/adapter/0930-grpo-functions-spike/grpo/adapter --split test
+--tag v13A-grpo --workers 6` (same settings as the v1.3-A run), output `script/eval/Nitin-test/out/v13A-grpo_test_10-02_14-13`,
+log `logs/1002-v13A-grpo-nitin-test.log`, 53 min. 972 problems, greedy:
+
+| | pass@1 | completion | translation | compile | test cases |
+|---|---:|---:|---:|---:|---:|
+| v1.3-A SFT | 56.3% (547) | 32.7% (159) | 79.8% (388) | 87.6% | 82.3% |
+| v1.3-A + GRPO | 56.9% (553) | 34.0% (165) | 79.8% (388) | 87.2% | 83.0% |
+
+Flips: 14 pass only with GRPO, 8 only with SFT (exact McNemar p = 0.29). No regression, no significant gain.
+Within-group answer diversity in rollouts stayed high (distinct code per group of 8: 0.99 at steps 1–10, 0.94–0.96 at 31–50).

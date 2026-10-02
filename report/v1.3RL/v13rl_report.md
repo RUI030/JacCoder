@@ -120,6 +120,16 @@ Recipe: `script/train/recipe/0930-grpo-functions-spike/grpo.yaml`
 - test case pass rate = hidden tests passed / total, counts partial passes
 - easy / medium pass rate = samples that pass all hidden tests
 
+**Nitin function test suite** (972 problems, greedy, not trained on → overfitting check)
+
+| | pass@1 | completion | translation | compile rate | test case pass rate |
+|---|---:|---:|---:|---:|---:|
+| v1.3 SFT (baseline) | 56.3% (547) | 32.7% (159 / 486) | 79.8% (388 / 486) | 87.6% | 82.3% |
+| v1.3 + GRPO | 56.9% (553) | 34.0% (165 / 486) | 79.8% (388 / 486) | 87.2% | 83.0% |
+
+- No drop → GRPO did not overfit to the 14 train tasks at the cost of general function skill
+- No real gain either: 14 problems flip to pass, 8 flip to fail (exact McNemar p = 0.29)
+
 ![GRPO training curve](image/grpo_train_curve.png)
 
 - Reward and pass rate go up during training, compile rate stays ~0.9+
@@ -135,6 +145,7 @@ Recipe: `script/train/recipe/0930-grpo-functions-spike/grpo.yaml`
 - The loop works: reward signal is real, grading is stable (0 grader errors, host RAM ≤ 17 GB)
 - GRPO improves easy tasks, not medium ones yet
 - Dev looks better too, but 3 tasks (24 samples) is too small to trust
+- Nitin suite unchanged (56.3% → 56.9%, not significant): no overfitting, but no transfer yet
 - Easy tasks start to saturate after ~38 steps (10–15% groups all correct → no signal)
 - No reward hacking found in rollouts; one watch item: GRPO sometimes answers
   `int_to_roman` with a long lookup table
