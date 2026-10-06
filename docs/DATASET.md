@@ -1,5 +1,6 @@
 # Dataset
 This folder contains dataset for finetuning LLM for Jac. Using Hugging Face format.
+Where each dataset comes from: see `DATA_SOURCE.md`.
 
 | Folder   | Purpose                  | Example          |
 | -------- | ------------------------ | ---------------- |

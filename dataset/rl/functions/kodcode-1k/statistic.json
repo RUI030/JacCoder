@@ -1,0 +1,56 @@
+{
+  "tasks": 1094,
+  "splits": {
+    "train": 875,
+    "dev": 109,
+    "test": 110
+  },
+  "difficulty": {
+    "easy": 627,
+    "medium": 268,
+    "hard": 199
+  },
+  "hidden_tests": 9065,
+  "source": "KodCode/KodCode-V1 (train)",
+  "subset": {
+    "Algorithm": 100,
+    "Apps": 100,
+    "Code_Contests": 100,
+    "Codeforces": 100,
+    "Data_Structure": 100,
+    "Docs": 55,
+    "Evol": 100,
+    "Filter": 100,
+    "Leetcode": 100,
+    "Package": 39,
+    "Prefill": 100,
+    "Taco": 100
+  },
+  "style": {
+    "complete": 668,
+    "instruct": 426
+  },
+  "screened": {
+    "not_single_function": 145127,
+    "eligible": 106546,
+    "non_literal_tests": 102749,
+    "code_fence_in_question": 65860,
+    "style": 40554,
+    "benchmark_similar": 21876,
+    "non_std_import": 1242,
+    "too_few_tests": 143
+  },
+  "rejected": {
+    "solution_check_fail": 124,
+    "untyped_param": 50,
+    "unparsable_signature": 28,
+    "solution_test_fail": 26,
+    "complex_params": 20,
+    "untyped_return": 18,
+    "starter_warning_W1036": 11,
+    "starter_check_fail": 3,
+    "starter_warning_W1051": 3,
+    "starter_passes_all": 2,
+    "empty_description": 1
+  }
+}

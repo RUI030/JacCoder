@@ -1,4 +1,4 @@
-"""Thin wrappers around the `jac` CLI: check / run / build / start / test."""
+"""Thin wrappers around the `jac` CLI: check / run / build / start / test / py2jac."""
 
 import os, re, shutil, signal, socket, subprocess, tempfile, time, urllib.request
 from contextlib import contextmanager
@@ -14,6 +14,7 @@ PG_DIR          = Path(os.environ.get("JAC_CACHE_HOME", "~/.cache/jac")).expandu
 SERVER_TOML     = '[build]\ndefault_codespace = "server"\n'   # plain functions otherwise lower to native (wrong results in 0.36.1)
 TEST_LINE       = re.compile(r"^[^\s:]+\.jac::(.+?)\s+(PASSED|FAILED|ERROR)\b", re.M)
 FAIL_SECTION    = re.compile(r"^_{3,} (.+?) _{3,}$")             # pytest failure-section header
+WARNING_CODE    = re.compile(r"warning\[(W\d+)\]")
 INFRA_ERROR     = re.compile(
     r"embedded postgres|postgres not ready|could not connect to (?:the )?database|"
     r"connection to server.*failed|initdb|database system is starting up|"
@@ -46,10 +47,10 @@ class JacResult:
 
 
 @contextmanager
-def jac_tempfile(source: str):
-    """Write source to a temporary .jac file; unlink on exit."""
+def jac_tempfile(source: str, suffix: str = ".jac"):
+    """Write source to a temporary file (.jac unless `suffix` says otherwise); unlink on exit."""
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".jac", delete=False, encoding="utf-8"
+        mode="w", suffix=suffix, delete=False, encoding="utf-8"
     ) as fp:
         fp.write(source)
         path = Path(fp.name)
@@ -172,6 +173,22 @@ def check(source: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, str]:
     """Static type check via `jac check`."""
     with jac_tempfile(source) as p:
         return invoke(["check", str(p)], timeout)
+
+
+def check_warnings(source: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, list[str]]:
+    """`jac check` in a server-codespace workspace; return (no errors, warning codes in order)."""
+    with jac_workspace({"main.jac": source, "jac.toml": SERVER_TOML}) as ws:
+        res = execute(["check", "main.jac"], timeout, ws)
+    return res.ok and not res.timed_out, WARNING_CODE.findall(res.stdout + res.stderr)
+
+
+def py2jac(source: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[bool, str]:
+    """Python source -> Jac via `jac tool py2jac`; return (ok, jac source or error text)."""
+    with jac_tempfile(source, ".py") as p:
+        res = execute(["tool", "py2jac", str(p)], timeout)
+    if res.timed_out:
+        return False, "timeout"
+    return res.ok and bool(res.stdout.strip()), res.stdout if res.ok else res.text()
 
 
 def check_path(path: str | Path, cwd: str | Path | None = None,

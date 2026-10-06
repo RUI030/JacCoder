@@ -1,12 +1,13 @@
-"""Shared record-writing pipeline for CPT/SFT dataset producers.
+"""Shared record-writing pipeline for CPT/SFT/RL dataset producers.
 
 Every dataset script builds a list of records (each a dict ready to write),
 then splits + writes them. This module owns the split+write half so each
-script only has to know how to turn one raw sample into one record.
+script only has to know how to turn one raw sample into one record (or task).
 """
 
-import json
+import json, random, shutil
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -59,3 +60,48 @@ def report(counts: dict[str, int], out_dir) -> None:
     print(f"Created {train} train and {valid} validation samples in {out_dir}")
     if valid == 0:
         print("  (VALID_SIZE=0, valid.jsonl skipped — CPT mode)")
+
+
+def write_rl_set(tasks: list[dict], out_dir, shared_meta: dict, split_ratio: tuple[float, float, float],
+                 seed: int, rejected: list[dict] | None = None, extra_stats: dict | None = None) -> dict[str, int]:
+    """Write an RL task set in the layout `rl/task.py` loads.
+
+    Each task is `{"id", "meta": {entrypoints, difficulty, ...}, "visible": {name: text},
+    "hidden": {name: text}}`: `visible` goes to tasks/<id>/ (model-visible), `hidden` to
+    tests/<id>/ (grader-only). Tasks are shuffled with `seed` and cut into train/dev/test by
+    `split_ratio`. Writes meta.json, splits/*.txt, statistic.json and rejected.jsonl; stale
+    tasks/, tests/ and splits/ under `out_dir` are removed first. Returns {split: task count}.
+    """
+    out_dir = Path(out_dir)
+    for sub in ("tasks", "tests", "splits"):
+        shutil.rmtree(out_dir / sub, ignore_errors=True)
+    for t in tasks:
+        for kind, files in (("tasks", t["visible"]), ("tests", t["hidden"])):
+            d = out_dir / kind / t["id"]
+            d.mkdir(parents=True)
+            for name, text in files.items():
+                (d / name).write_text(text, encoding="utf-8")
+
+    ids = [t["id"] for t in tasks]
+    random.Random(seed).shuffle(ids)
+    n_train, n_dev = int(len(ids) * split_ratio[0]), int(len(ids) * split_ratio[1])
+    splits = {"train": ids[:n_train], "dev": ids[n_train:n_train + n_dev], "test": ids[n_train + n_dev:]}
+    (out_dir / "splits").mkdir()
+    for name, part in splits.items():
+        (out_dir / "splits" / f"{name}.txt").write_text("".join(f"{i}\n" for i in sorted(part)))
+
+    meta = {**shared_meta, "tasks": {t["id"]: t["meta"] for t in sorted(tasks, key=lambda t: t["id"])}}
+    (out_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
+    stats = {
+        "tasks":        len(tasks),
+        "splits":       {k: len(v) for k, v in splits.items()},
+        "difficulty":   dict(Counter(t["meta"].get("difficulty") for t in tasks).most_common()),
+        "hidden_tests": sum(t.get("n_hidden", 0) for t in tasks),
+        **(extra_stats or {}),
+    }
+    if rejected is not None:
+        stats["rejected"] = dict(Counter(r["reason"] for r in rejected).most_common())
+        with (out_dir / "rejected.jsonl").open("w", encoding="utf-8") as f:
+            f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rejected)
+    (out_dir / "statistic.json").write_text(json.dumps(stats, indent=2, ensure_ascii=False) + "\n")
+    return {k: len(v) for k, v in splits.items()}

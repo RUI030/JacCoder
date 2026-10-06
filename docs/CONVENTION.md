@@ -32,11 +32,13 @@ script/
 │   ├── jac_cli.py        subprocess wrapper around `jac check/run/build/start/test` (+ timeout/memory cap, postgres purge)
 │   └── model.py          Unsloth model load + generate
 ├── dataset/
-│   ├── pipeline.py       shared record-write pipeline (used by every producer)
+│   ├── pipeline.py       shared record-write pipeline (used by every producer; write_rl_set for RL sets)
 │   ├── inspect.py        JSONL schema inspector (standalone CLI)
+│   ├── sample_hf.py      N random rows per group of a local HF parquet dataset → Markdown (standalone CLI)
 │   ├── statistics.py     per-dataset statistics writer (statistic.json)
 │   ├── cpt/              CPT producers, one per input shape
 │   ├── sft/              SFT producers, one per task type
+│   ├── rl/               RL task-set producers, one per upstream (kodcode.py)
 │   ├── parser/           parsers/transformers used by producers
 │   │   ├── chunk.py
 │   │   ├── md2ast.py
@@ -239,6 +241,7 @@ dataset/
 │   ├── jac/<DS_NAME>/            # jsonl or .jac files
 │   ├── repo/<repo_name>/         # runnable repos
 │   ├── agent-synth/*.jsonl       # LLM-generated seed data
+│   ├── hf/<name>/                # `hf download --local-dir` copies of HF datasets (parquet)
 │   ├── markdown/                 # markdown corpora
 │   ├── diff/, session/           # git diffs / session logs
 ├── cpt/<DS_NAME>/                # CPT output (train.jsonl only)
