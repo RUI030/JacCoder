@@ -29,7 +29,7 @@ N_SAMPLES       = 8
 TEMPERATURE     = 0.8              # same sampling as GRPO rollouts
 TOP_P           = 1.0
 REPETITION_PENALTY = 1.0
-MAX_NEW_TOKENS  = 768
+MAX_NEW_TOKENS  = 2048             # function-level answers are p95 ~300 tokens; room for long correct ones
 GEN_BATCH       = 32               # sequences per generate call
 K               = [1, 8]
 LIMIT           = 0                # 0 => all tasks in the split

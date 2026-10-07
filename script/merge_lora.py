@@ -19,6 +19,8 @@ from unsloth import FastLanguageModel
 ADAPTER   = "path/to/adapter"    # override with --adapter
 OUT       = ""                   # override with --out; empty => output/model/<adapter_dir_name>
 Q4BIT     = True                 # merged_4bit vs merged_16bit
+LOAD_4BIT = True                 # load the adapter on the 4-bit base either way: merged_16bit merges into the
+                                 # original bf16 shards from the HF cache, and a 16-bit load does not fit 16GB
 TEXT_ONLY = True                 # unwrap Ornith processor VLM wrapper
 
 MAX_SEQ_LENGTH = 16384
@@ -106,7 +108,7 @@ def clear_weight_conversions(model) -> int:
 cli = argparse.ArgumentParser(add_help=False)
 cli.add_argument("--adapter", dest="adapter", help="path to adapter/ folder")
 cli.add_argument("--out",     dest="out",     help="output folder (default: output/model/<adapter_dir_name>)")
-cli.add_argument("--no-4bit", dest="no_4bit", action="store_true", help="save as merged_16bit instead of merged_4bit")
+cli.add_argument("--no-4bit", dest="no_4bit", action="store_true", help="save as merged_16bit instead of merged_4bit (still loads 4-bit)")
 cli.add_argument("--gguf",    dest="gguf",    help="export GGUF instead of HF merged. Value = quant method: q4_k_m / q5_k_m / q8_0 / iq4_xs / f16")
 cli.add_argument("--keep-vlm-wrapper", dest="keep_wrapper", action="store_true", help="skip text_only unwrap (keep processor wrapper)")
 args, _ = cli.parse_known_args()
@@ -129,7 +131,7 @@ out_path.parent.mkdir(parents=True, exist_ok=True)
 
 print(f"Adapter   : {adapter_path}")
 print(f"Out       : {out_path}")
-print(f"Quant     : {'4bit' if Q4BIT else '16bit'}")
+print(f"Quant     : {'4bit' if Q4BIT else '16bit'} (load {'4bit' if LOAD_4BIT else '16bit'})")
 print(f"Text-only : {TEXT_ONLY}")
 
 # Load =====================================================
@@ -137,7 +139,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     model_name     = str(adapter_path),
     max_seq_length = MAX_SEQ_LENGTH,
     dtype          = DTYPE,
-    load_in_4bit   = Q4BIT,
+    load_in_4bit   = LOAD_4BIT,
     text_only      = TEXT_ONLY,
 )
 

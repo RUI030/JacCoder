@@ -1,4 +1,4 @@
-import argparse
+import argparse, inspect
 import sys
 from pathlib import Path
 
@@ -18,6 +18,26 @@ PROMPT    = REPO_ROOT / "script" / "dataset" / "template" / "prompt_template.jso
 # 0.24 renders prompts without template kwargs. Eval (utils/model.py) renders with
 # thinking off, so training rollouts default to the same.
 THINK_OFF = "{%- if enable_thinking is not defined %}{%- set enable_thinking = false %}{%- endif %}"
+
+
+def expose_forward_signature(model) -> int:
+    """Give Unsloth's GRPO `wrapped_forward(*args, **kwargs)` the wrapped forward's signature again.
+
+    HF `generate()` passes `logits_to_keep=1` only when `inspect.signature(forward)` lists it. Behind the
+    wrapper it doesn't, so every prefill computes lm_head logits for all prompt positions
+    (16 sequences × prompt length × 248K vocab): a 741-token prompt asked for 6.1GB and OOMed a 16GB run.
+    """
+    fixed = 0
+    for module in model.modules():
+        fwd = module.__dict__.get("forward")
+        if fwd is None or not getattr(fwd, "_unsloth_grpo_hidden_states_forward_wrapped", False):
+            continue
+        sig = inspect.getclosurevars(fwd).nonlocals.get("forward_signature")
+        if sig is None or "logits_to_keep" not in sig.parameters:
+            continue
+        fwd.__signature__ = sig
+        fixed += 1
+    return fixed
 
 
 # Defaults (also the config schema for train.py) ============================
@@ -50,7 +70,7 @@ def default_config() -> dict:
         "grad_acc":       2,          # batch_size × grad_acc completions per update = (that / num_generations) groups
         "optimizer":      "adamw_8bit",
         "lr":             5e-6,       # Unsloth GRPO notebooks
-        "scheduler":      "linear",
+        "scheduler":      "constant_with_warmup",   # RL data shifts with the policy; decay starves late steps (09-30 and 10-05 runs decayed to 0)
         "warmup_steps":   5,
         "max_steps":      -1,
         "weight_decay":   1e-3,
@@ -65,7 +85,7 @@ def default_config() -> dict:
         "min_p":                  None,
         "repetition_penalty":     1.0,
         "max_prompt_length":      1024,
-        "max_completion_length":  768,
+        "max_completion_length":  2048,    # needs max_seq_length >= max_prompt_length + this
         "beta":                   0.0,     # with PEFT the reference is the adapter-off base, not the SFT policy
         "num_iterations":         1,
         "loss_type":              "dapo",
@@ -171,6 +191,7 @@ def run_grpo(config: dict, train_ds, eval_ds=None):
         args             = training_args,
         train_dataset    = train_ds,
     )
+    print(f"[grpo] forward signature restored on {expose_forward_signature(trainer.model)} module(s)")
 
     print_gpu_banner()
     try:

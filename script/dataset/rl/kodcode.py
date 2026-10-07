@@ -1,6 +1,6 @@
 """KodCode-V1 (HF parquet) -> Jac RL `functions` task set, converted without an LLM and validated through the RL grader."""
 
-import ast, random, re, sys, tempfile, textwrap
+import argparse, ast, json, random, re, sys, tempfile, textwrap
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -17,6 +17,7 @@ DS_NAME       = "kodcode-1k"
 DS_ROOT       = f"{Path(__file__).resolve().parent}/../../../dataset"
 IN_DIR        = f"{DS_ROOT}/raw/hf/KodCode-V1/data"
 OUT_DIR       = f"{DS_ROOT}/rl/functions/{DS_NAME}"
+POOL_DIR      = f"{DS_ROOT}/raw/hf/KodCode-V1/pool"     # --pool: every eligible task, gitignored (~270MB)
 STYLES        = ("instruct", "complete")
 PER_SUBSET    = 100                     # tasks kept per KodCode subset (small subsets keep what passes)
 OVERSAMPLE    = 1.3                     # candidates per kept task; validation drops some
@@ -28,6 +29,7 @@ STD_IMPORTS   = {"typing", "collections", "math", "heapq", "itertools", "functoo
 STARTER_WARN  = {"W2003"}               # unused parameter: the placeholder body ignores its args
 WORKERS       = 16
 BATCH         = 256                     # tasks graded between postgres purges
+CHUNK         = 2048                    # tasks built + validated per progress checkpoint
 GRADE_TIMEOUT = 30
 GRADE_MEM_GB  = 3
 SEED          = 3407
@@ -305,43 +307,78 @@ def validate(tasks: list[dict]) -> dict[str, str]:
     return reasons
 
 
-def convert(in_dir=IN_DIR, out_dir=OUT_DIR) -> None:
-    # 1. Screen every row, then draw candidates per subset
+def process(candidates: list[dict], progress: Path) -> tuple[list[dict], list[dict]]:
+    """Build + validate candidates CHUNK at a time; return (passing tasks, rejected rows) in candidate order.
+
+    Each verdict is appended to `progress` (JSONL), so a crashed run resumes where it stopped.
+    """
+    done = {}
+    if progress.exists():
+        for line in progress.open():
+            r = json.loads(line)
+            done[r["origin_id"]] = r
+        print(f"Resuming: {len(done)} candidates already processed")
+    todo = [r for r in candidates if r["question_id"] not in done]
+    with ThreadPoolExecutor(WORKERS) as ex, progress.open("a") as log:
+        for i in range(0, len(todo), CHUNK):
+            chunk = todo[i:i + CHUNK]
+            built = list(ex.map(build_task, chunk))           # py2jac is a subprocess per task
+            tasks = [t for t, _ in built if t is not None]
+            jac_cli.purge_pg()
+            jac_cli.start_pg()
+            reasons = validate(tasks) if tasks else {}
+            for row, (t, why) in zip(chunk, built):
+                why = why or reasons.get(t["id"], "")
+                rec = {"origin_id": row["question_id"], "subset": row["subset"], "reason": why,
+                       "task": None if why else t}
+                done[rec["origin_id"]] = rec
+                log.write(json.dumps(rec) + "\n")
+            log.flush()
+            print(f"Processed {len(done)}/{len(candidates)} candidates, "
+                  f"{sum(not r['reason'] for r in done.values())} pass")
+    recs = [done[r["question_id"]] for r in candidates]
+    return ([r["task"] for r in recs if not r["reason"]],
+            [{k: r[k] for k in ("origin_id", "subset", "reason")} for r in recs if r["reason"]])
+
+
+def convert(in_dir=IN_DIR, out_dir=OUT_DIR, per_subset: int | None = PER_SUBSET,
+            split_ratio=SPLIT_RATIO, source: str = "KodCode/KodCode-V1 (train)") -> None:
+    # 1. Screen every row, then draw candidates per subset (per_subset=None: every eligible row)
     pool, verdicts = scan(in_dir)
     print(f"Screened {sum(verdicts.values())} rows: {dict(verdicts.most_common())}")
     rng = random.Random(SEED)
-    candidates = [r for subset in sorted(pool)
-                  for r in rng.sample(pool[subset], min(len(pool[subset]), int(PER_SUBSET * OVERSAMPLE)))]
+    take = lambda n: n if per_subset is None else min(n, int(per_subset * OVERSAMPLE))
+    candidates = [r for subset in sorted(pool) for r in rng.sample(pool[subset], take(len(pool[subset])))]
 
-    # 2. Build tasks (py2jac is a subprocess per task)
-    with ThreadPoolExecutor(WORKERS) as ex:
-        built = list(ex.map(build_task, candidates))
-    rejected = [{"origin_id": r["question_id"], "subset": r["subset"], "reason": why}
-                for r, (t, why) in zip(candidates, built) if t is None]
-    tasks = [t for t, _ in built if t is not None]
-    print(f"Built {len(tasks)}/{len(candidates)} candidates")
+    # 2. Build tasks and validate them through the grader
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    progress = Path(out_dir) / "progress.jsonl"
+    tasks, rejected = process(candidates, progress)
 
-    # 3. Validate through the grader, keep the first PER_SUBSET passing tasks per subset
-    jac_cli.purge_pg()
-    jac_cli.start_pg()
-    reasons = validate(tasks)
-    rejected += [{"origin_id": t["id"], "subset": t["meta"]["subset"], "reason": reasons[t["id"]]}
-                 for t in tasks if t["id"] in reasons]
-    kept, per_subset = [], Counter()
+    # 3. Keep the first per_subset passing tasks per subset
+    kept, per_count = [], Counter()
     for t in tasks:
-        if t["id"] not in reasons and per_subset[t["meta"]["subset"]] < PER_SUBSET:
+        if per_subset is None or per_count[t["meta"]["subset"]] < per_subset:
             kept.append(t)
-            per_subset[t["meta"]["subset"]] += 1
+            per_count[t["meta"]["subset"]] += 1
 
     # 4. Write the set
-    counts = write_rl_set(kept, out_dir, SHARED_META, SPLIT_RATIO, SEED, rejected, {
-        "source":   "KodCode/KodCode-V1 (train)",
-        "subset":   dict(sorted(per_subset.items())),
+    counts = write_rl_set(kept, out_dir, SHARED_META, split_ratio, SEED, rejected, {
+        "source":   source,
+        "subset":   dict(sorted(per_count.items())),
         "style":    dict(Counter(t["meta"]["style"] for t in kept).most_common()),
         "screened": dict(verdicts.most_common()),
     })
+    progress.unlink()
     print(f"Wrote {len(kept)} tasks {counts} to {Path(out_dir).resolve()} ({len(rejected)} rejected)")
 
 # Run =====================================================
 if __name__ == "__main__":
-    convert()
+    cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument("--pool", action="store_true",
+                     help=f"convert every eligible row into {POOL_DIR} (all ids in train; draw curated sets from it)")
+    args = cli.parse_args()
+    if args.pool:
+        convert(out_dir=POOL_DIR, per_subset=None, split_ratio=(1.0, 0.0, 0.0))
+    else:
+        convert()

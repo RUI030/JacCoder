@@ -1,0 +1,53 @@
+# GRPO on dataset/rl/functions/kodcode-1k train_180, from v1.3-A merged into bf16 (output/model/JacLLM-SFT-Ornith-9B-v1.3A-bf16).
+# train_180 = the 15 tasks per KodCode subset with the highest reward std in the v13-A pre-screen, from train_active
+# (1-7/8 full passes) (script/dataset/rl/signal_split.py; report/v1.3RL/kod-result.md).
+# Fresh LoRA, same shape as the SFT adapter (r64, alpha 32, rsLoRA): step 0 = the SFT model, the adapter holds only
+# the RL update (SVD-comparable with the SFT adapter), and adapter-off = SFT if beta > 0 is ever wanted.
+# Counted in epochs: 1 epoch = 180 tasks / 2 groups per step = 90 steps (~7-8 h at 284-330 s/step). A checkpoint
+# every 30 steps (1/3, 2/3, 1 epoch), all kept, to pick the best one on dev afterwards.
+# The 10-05 first launch OOMed at step 2 on a 741-token prompt: Unsloth's GRPO forward wrapper hid `logits_to_keep`,
+# so generate() computed logits for every prompt position; grpo.py:expose_forward_signature fixes it.
+recipe:
+  name: grpo-kodcode-r64
+  stage: grpo
+  base_model: output/model/JacLLM-SFT-Ornith-9B-v1.3A-bf16
+  out_dir: output/adapter/1005-grpo-kodcode-r64/grpo
+  seed: 3407
+  max_seq_length: 2048
+  load_in_4bit: true
+  text_only: true
+  enable_thinking: false
+
+hyperparams:
+  batch_size: 8                 # completions per micro-batch, not prompts
+  grad_acc: 2                   # 16 completions per update = 2 groups of 8
+  lr: 5.0e-6                    # same as the 09-30 spike
+  warmup_steps: 5
+  epochs: 1
+  save_steps: 30
+  num_generations: 8
+  temperature: 0.8
+  top_p: 1.0
+  beta: 0.0
+  loss_type: dapo
+  importance_sampling_level: token
+  scale_rewards: group
+  mask_truncated_completions: true
+  max_prompt_length: 1024
+  max_completion_length: 768    # = the pre-screen's max_new_tokens that picked these tasks
+  reward: functions
+  grade_workers: 8
+  grade_mem_gb: 3
+  grade_timeout: 30             # pre-screen grading max ~31 s per group of 8
+  purge_pg_steps: 5
+  lora_rank: 64
+  lora_alpha: 32                # = v13-A SFT adapter
+  rslora: true
+
+mixing:
+  strategy: concat
+
+datasets:
+  - task: functions
+    name: kodcode-1k
+    split: train_180
